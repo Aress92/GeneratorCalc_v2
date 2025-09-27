@@ -588,7 +588,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=${PUBLIC_BASE_URL}
     volumes:
       - frontend_cache:/app/.next/cache
     networks:
@@ -604,7 +604,8 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - SECRET_KEY=${SECRET_KEY}
       - SMTP_HOST=${SMTP_HOST}
     volumes:
@@ -628,7 +629,8 @@ services:
     command: celery -A app.celery worker --loglevel=info
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
@@ -959,3 +961,4 @@ JWT HttpOnly + RBAC authorization
 Docker Compose deployment
 
 Prometheus/Grafana monitoring
+
