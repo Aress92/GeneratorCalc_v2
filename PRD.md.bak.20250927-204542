@@ -980,9 +980,3 @@ Security: JWT + RBAC + TLS 1.3 + audit logging
 Scalability: 50 concurrent users, 10 parallel optimizations
 
 Integration: XLSX import/export, PDF reports, email notifications
-
-### Luki znane (przed UAT)
-- Pokrycie testami: 45% (cel 80%) – skoncentrować się na warstwie services oraz testach SSE.
-- ORM/Relacje: dodać `template_id` w `Report` i odblokować relację `ReportTemplate.generated_reports` + migracja.
-- SSE przez Nginx: wyłączyć buforowanie (`proxy_buffering off`) i cache (`proxy_cache off`) dla ścieżek `/api/v1/jobs/*/events`.
-

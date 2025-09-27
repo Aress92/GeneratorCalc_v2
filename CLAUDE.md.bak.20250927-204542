@@ -749,8 +749,3 @@ Key Coverage Gaps: Service layer business logic
 - **RULES.md**: Development practices, deployment procedures, quality gates
 - **README.md**: Setup instructions, project overview, troubleshooting
 - **test_data/**: Sample XLSX files for testing import functionality
-
-#### Known Issues (Current Status) – additions
-- **Frontend base URL**: Ensure `NEXT_PUBLIC_API_URL` points to the public entry (Nginx host), not the Docker service name (`backend`).
-- **SSE via Nginx**: `proxy_buffering off; proxy_cache off;` and `text/event-stream` must be honored; use a dedicated `location` for `/api/v1/jobs/*/events`.
-
