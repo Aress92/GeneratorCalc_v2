@@ -1,0 +1,100 @@
+[tool.poetry]
+name = "forglass-regenerator-optimizer"
+version = "1.0.0"
+description = "System optymalizacji regeneratorów pieców szklarskich"
+authors = ["Forglass Engineering Team <engineering@forglass.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+sqlalchemy = "^2.0.0"
+alembic = "^1.12.0"
+pydantic = "^2.4.0"
+pydantic-settings = "^2.0.0"
+celery = "^5.3.0"
+redis = "^5.0.0"
+aiomysql = "^0.2.0"
+asyncio-mqtt = "^0.16.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-multipart = "^0.0.6"
+email-validator = "^2.0.0"
+pandas = "^2.1.0"
+openpyxl = "^3.1.0"
+scipy = "^1.11.0"
+numpy = "^1.25.0"
+plotly = "^5.17.0"
+reportlab = "^4.0.0"
+prometheus-client = "^0.17.0"
+structlog = "^23.2.0"
+httpx = "^0.25.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+factory-boy = "^3.3.0"
+faker = "^19.6.0"
+black = "^23.9.0"
+ruff = "^0.1.0"
+mypy = "^1.6.0"
+httpx = "^0.25.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8-naming
+    "D",  # pydocstyle
+    "UP", # pyupgrade
+    "S",  # bandit security
+]
+ignore = ["D100", "D104"]  # Allow missing docstrings in __init__.py
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.black]
+line-length = 100
+target-version = ['py312']
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80"
+]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests"
+]

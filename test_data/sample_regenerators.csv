@@ -1,0 +1,11 @@
+Name,Description,Type,Length (m),Width (m),Height (m),Design Temperature (C),Max Temperature (C),Working Pressure (Pa),Air Flow Rate (m3/h),Gas Flow Rate (m3/h),Pressure Drop (Pa),Checker Material,Insulation Material,Refractory Material,Thermal Efficiency (%),Heat Recovery Rate (%),Fuel Consumption (kW)
+Regenerator East,Crown type regenerator for furnace line 1,crown,12.5,8.0,6.5,1450,1650,500,15000,12000,800,Alumina brick,Ceramic fiber,Fire brick,85.5,78.2,2500
+Regenerator West,Crown type regenerator for furnace line 1,crown,12.5,8.0,6.5,1450,1650,500,15000,12000,800,Alumina brick,Ceramic fiber,Fire brick,84.8,77.9,2520
+Regenerator North,End-port regenerator for furnace line 2,end-port,15.0,6.0,5.0,1350,1550,400,18000,14000,650,Silica brick,Mineral wool,Refractory concrete,82.1,75.8,2800
+Regenerator South,End-port regenerator for furnace line 2,end-port,15.0,6.0,5.0,1350,1550,400,18000,14000,650,Silica brick,Mineral wool,Refractory concrete,81.9,75.5,2820
+Cross-fired Unit 1,Cross-fired regenerator system,cross-fired,10.0,10.0,4.5,1400,1600,600,12000,10000,900,Chrome brick,Kaowool,Magnesia brick,83.2,76.5,2300
+Cross-fired Unit 2,Cross-fired regenerator system,cross-fired,10.0,10.0,4.5,1400,1600,600,12000,10000,900,Chrome brick,Kaowool,Magnesia brick,83.0,76.3,2310
+Test Unit Small,Small test regenerator,crown,8.0,5.0,4.0,1200,1400,300,8000,6000,500,Firebrick,Ceramic blanket,Clay brick,78.5,70.2,1800
+Test Unit Large,Large test regenerator,end-port,20.0,8.0,7.0,1500,1700,700,25000,20000,1200,Zirconia brick,Silica blanket,High alumina,87.2,80.5,3500
+Pilot Plant A,Pilot plant regenerator configuration,crown,6.0,4.0,3.0,1100,1300,200,5000,4000,300,Standard brick,Glass wool,Common brick,75.0,68.0,1200
+Pilot Plant B,Advanced pilot regenerator with new materials,crown,6.0,4.0,3.0,1100,1300,200,5000,4000,300,Advanced ceramic,Aerogel,Ultra-low cement,82.5,75.0,1100

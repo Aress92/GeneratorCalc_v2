@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(poetry lock:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose exec:*)",
+      "Bash(curl:*)",
+      "Bash(docker compose:*)",
+      "Bash(python:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(export DATABASE_URL=\"sqlite+aiosqlite:///./test.db\")",
+      "Bash(npm:*)",
+      "Bash(sqlite3:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell:*)",
+      "Bash(docker:*)",
+      "Bash(tasklist)",
+      "Bash(dir:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
