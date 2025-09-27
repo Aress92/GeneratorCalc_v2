@@ -50,7 +50,8 @@ async def create_report(
 ):
     """Create a new report."""
 
-    if current_user.role not in ['admin', 'engineer']:
+    from app.models.user import UserRole
+    if current_user.role not in [UserRole.ADMIN, UserRole.ENGINEER]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     reporting_service = ReportingService(db)
@@ -350,7 +351,8 @@ async def create_report_template(
 ):
     """Create a new report template."""
 
-    if current_user.role not in ['admin', 'engineer']:
+    from app.models.user import UserRole
+    if current_user.role not in [UserRole.ADMIN, UserRole.ENGINEER]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     template = ReportTemplate(
@@ -449,7 +451,8 @@ async def create_report_schedule(
 ):
     """Create a new report schedule."""
 
-    if current_user.role not in ['admin', 'engineer']:
+    from app.models.user import UserRole
+    if current_user.role not in [UserRole.ADMIN, UserRole.ENGINEER]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     schedule = ReportSchedule(

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useRef, useState } from 'react'
+import React, { Suspense, useRef, useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, Grid, Box, Text, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -216,20 +216,53 @@ function TemperatureMap({ config, show }: { config: RegeneratorConfig, show: boo
   if (!show) return null
 
   const { length, width, height } = config.geometry
-  const tempGradient = config.thermal?.gas_temp_inlet || 1600
+  const tempInlet = config.thermal?.gas_temp_inlet || 1600
   const tempOutlet = config.thermal?.gas_temp_outlet || 600
+
+  // Create temperature gradient zones
+  const zones = []
+  const numZones = 5
+
+  for (let i = 0; i < numZones; i++) {
+    const z = (i - numZones/2 + 0.5) * (length / numZones)
+    const tempRatio = i / (numZones - 1)
+    const temperature = tempInlet - (tempInlet - tempOutlet) * tempRatio
+
+    // Color based on temperature (red = hot, blue = cold)
+    const tempNormalized = (temperature - tempOutlet) / (tempInlet - tempOutlet)
+    const red = Math.floor(255 * tempNormalized)
+    const blue = Math.floor(255 * (1 - tempNormalized))
+    const color = `rgb(${red}, 100, ${blue})`
+
+    zones.push(
+      <mesh key={`temp-zone-${i}`} position={[0, height/2, z]}>
+        <boxGeometry args={[width*0.8, height*0.8, length/numZones*0.8]} />
+        <meshBasicMaterial
+          transparent
+          opacity={0.3}
+          color={color}
+        />
+      </mesh>
+    )
+  }
 
   return (
     <group>
-      {/* Heat flow visualization particles */}
-      <mesh position={[0, height/2, 0]}>
-        <boxGeometry args={[width*0.9, height*0.9, length*0.9]} />
-        <meshBasicMaterial
-          transparent
-          opacity={0.1}
-          color="#FF4500"
-        />
-      </mesh>
+      {zones}
+      {/* Temperature scale indicator */}
+      <Html position={[width/2 + 1, height, 0]}>
+        <div className="bg-black/70 text-white p-2 rounded text-xs">
+          <div className="font-bold mb-1">Temperature Scale</div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-red-500 rounded"></div>
+            <span>{tempInlet}°C</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 bg-blue-500 rounded"></div>
+            <span>{tempOutlet}°C</span>
+          </div>
+        </div>
+      </Html>
     </group>
   )
 }
@@ -243,6 +276,49 @@ function Loader() {
   )
 }
 
+// Flow visualization component
+function FlowVisualization({ config, show }: { config: RegeneratorConfig, show: boolean }) {
+  if (!show) return null
+
+  const { length, width, height } = config.geometry
+  const arrowsRef = useRef<THREE.Group>(null)
+
+  useFrame((state) => {
+    if (arrowsRef.current) {
+      arrowsRef.current.children.forEach((arrow, index) => {
+        const offset = Math.sin(state.clock.elapsedTime * 2 + index * 0.5) * 0.1
+        arrow.position.z = (index - 2) * (length / 4) + offset
+      })
+    }
+  })
+
+  const arrows = []
+  for (let i = 0; i < 5; i++) {
+    arrows.push(
+      <mesh key={`flow-arrow-${i}`} position={[0, height/2, (i - 2) * (length / 4)]}>
+        <coneGeometry args={[0.2, 0.6, 8]} />
+        <meshBasicMaterial color="#00FF00" transparent opacity={0.7} />
+      </mesh>
+    )
+  }
+
+  return (
+    <group ref={arrowsRef}>
+      {arrows}
+      {/* Flow direction indicator */}
+      <Html position={[-width/2 - 1, height, 0]}>
+        <div className="bg-black/70 text-white p-2 rounded text-xs">
+          <div className="font-bold mb-1">Gas Flow</div>
+          <div className="flex items-center gap-1">
+            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-green-500"></div>
+            <span>Direction</span>
+          </div>
+        </div>
+      </Html>
+    </group>
+  )
+}
+
 // Main RegeneratorViewer component
 export default function RegeneratorViewer({
   config,
@@ -251,6 +327,17 @@ export default function RegeneratorViewer({
   className = ""
 }: RegeneratorViewerProps) {
   const [isWireframe, setIsWireframe] = useState(false)
+  const [localShowTemperature, setLocalShowTemperature] = useState(showTemperatureMap)
+  const [localShowFlow, setLocalShowFlow] = useState(showFlow)
+
+  // Update local state when props change
+  useEffect(() => {
+    setLocalShowTemperature(showTemperatureMap)
+  }, [showTemperatureMap])
+
+  useEffect(() => {
+    setLocalShowFlow(showFlow)
+  }, [showFlow])
 
   return (
     <div className={`relative w-full h-full ${className}`}>
@@ -301,7 +388,10 @@ export default function RegeneratorViewer({
           <RegeneratorStructure config={config} />
 
           {/* Temperature overlay */}
-          <TemperatureMap config={config} show={showTemperatureMap} />
+          <TemperatureMap config={config} show={localShowTemperature} />
+
+          {/* Flow visualization */}
+          <FlowVisualization config={config} show={localShowFlow} />
 
         </Suspense>
       </Canvas>
@@ -318,10 +408,18 @@ export default function RegeneratorViewer({
           <label className="flex items-center space-x-2 text-sm">
             <input
               type="checkbox"
-              checked={showTemperatureMap}
-              onChange={() => {/* Handle temperature toggle */}}
+              checked={localShowTemperature}
+              onChange={(e) => setLocalShowTemperature(e.target.checked)}
             />
             <span>Temperature Map</span>
+          </label>
+          <label className="flex items-center space-x-2 text-sm">
+            <input
+              type="checkbox"
+              checked={localShowFlow}
+              onChange={(e) => setLocalShowFlow(e.target.checked)}
+            />
+            <span>Flow Visualization</span>
           </label>
           <label className="flex items-center space-x-2 text-sm">
             <input

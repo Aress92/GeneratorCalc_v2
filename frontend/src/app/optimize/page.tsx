@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth, withAuth } from '@/contexts/AuthContext';
 import { hasPermission } from '@/lib/auth';
-import { OptimizationAPI } from '@/lib/api-client';
+import { OptimizationAPI, RegeneratorsAPI } from '@/lib/api-client';
 
 interface OptimizationScenario {
   id: string;
@@ -39,11 +39,19 @@ interface OptimizationJob {
   created_at: string;
 }
 
+interface RegeneratorConfig {
+  id: string;
+  name: string;
+  regenerator_type: string;
+  status: string;
+}
+
 function OptimizePage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'scenarios' | 'jobs' | 'results'>('scenarios');
   const [scenarios, setScenarios] = useState<OptimizationScenario[]>([]);
   const [jobs, setJobs] = useState<OptimizationJob[]>([]);
+  const [regeneratorConfigs, setRegeneratorConfigs] = useState<RegeneratorConfig[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreateScenario, setShowCreateScenario] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<OptimizationScenario | null>(null);
@@ -92,6 +100,7 @@ function OptimizePage() {
 
   useEffect(() => {
     if (user && hasPermission(user, 'engineer')) {
+      loadRegeneratorConfigs();
       if (activeTab === 'scenarios') {
         loadScenarios();
       } else if (activeTab === 'jobs') {
@@ -111,6 +120,24 @@ function OptimizePage() {
     );
   }
 
+  const loadRegeneratorConfigs = async () => {
+    try {
+      const data = await RegeneratorsAPI.getRegenerators();
+      // Backend returns array directly, not wrapped in object
+      const configs = Array.isArray(data) ? data : [];
+      setRegeneratorConfigs(configs);
+      // Set default base_configuration_id if available
+      if (configs.length > 0 && !newScenario.base_configuration_id) {
+        setNewScenario(prev => ({
+          ...prev,
+          base_configuration_id: configs[0].id
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load regenerator configs:', error);
+    }
+  };
+
   const loadScenarios = async () => {
     setIsLoading(true);
     try {
@@ -126,11 +153,12 @@ function OptimizePage() {
   const loadJobs = async () => {
     setIsLoading(true);
     try {
-      // Note: This endpoint needs to be implemented or use a different approach
-      // For now, we'll show empty jobs or load from a scenario
-      setJobs([]);
+      // Load all jobs for the user
+      const data = await OptimizationAPI.getJobs();
+      setJobs(data.jobs || []);
     } catch (error) {
       console.error('Failed to load jobs:', error);
+      setJobs([]);
     } finally {
       setIsLoading(false);
     }
@@ -158,25 +186,12 @@ function OptimizePage() {
   const startOptimization = async (scenarioId: string) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/v1/optimize/scenarios/${scenarioId}/jobs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          job_name: `Optymalizacja ${new Date().toLocaleString()}`,
-          initial_values: {}
-        })
+      await OptimizationAPI.createJob(scenarioId, {
+        job_name: `Optymalizacja ${new Date().toLocaleString()}`,
+        initial_values: {}
       });
-
-      if (response.ok) {
-        setActiveTab('jobs');
-        await loadJobs();
-      } else {
-        const error = await response.json();
-        alert(`Błąd: ${error.detail}`);
-      }
+      setActiveTab('jobs');
+      await loadJobs();
     } catch (error) {
       console.error('Failed to start optimization:', error);
       alert('Nie udało się rozpocząć optymalizacji');
@@ -456,6 +471,23 @@ function OptimizePage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Konfiguracja bazowa</label>
+                <select
+                  value={newScenario.base_configuration_id}
+                  onChange={(e) => setNewScenario({...newScenario, base_configuration_id: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  required
+                >
+                  <option value="">Wybierz konfigurację...</option>
+                  {regeneratorConfigs.map((config) => (
+                    <option key={config.id} value={config.id}>
+                      {config.name} ({config.regenerator_type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Typ scenariusza</label>
@@ -528,7 +560,7 @@ function OptimizePage() {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={createScenario}
-                disabled={isLoading || !newScenario.name}
+                disabled={isLoading || !newScenario.name || !newScenario.base_configuration_id}
                 className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
                 {isLoading ? 'Tworzenie...' : 'Utwórz'}

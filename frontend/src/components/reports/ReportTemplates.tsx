@@ -100,10 +100,11 @@ export function ReportTemplates({ onUseTemplate }: ReportTemplatesProps) {
 
   const loadTemplates = async () => {
     try {
-      // Note: This endpoint might not exist yet, showing empty templates for now
-      setTemplates([])
+      const data = await ReportsAPI.getTemplates({ limit: 100 })
+      setTemplates(data.templates || [])
     } catch (error) {
       console.error('Error loading templates:', error)
+      setTemplates([])
     } finally {
       setLoading(false)
     }

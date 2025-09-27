@@ -210,7 +210,7 @@ async def create_optimization_job(
 ):
     """Create and start optimization job."""
 
-    if current_user.role not in ['admin', 'engineer']:
+    if current_user.role not in [UserRole.ADMIN, UserRole.ENGINEER]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
 
     # Check scenario exists and belongs to user

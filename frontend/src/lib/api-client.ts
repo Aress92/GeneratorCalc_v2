@@ -225,10 +225,10 @@ export class OptimizationAPI {
   }
 
   /**
-   * Get optimization jobs
+   * Get optimization jobs for all scenarios or specific scenario
    */
-  static async getJobs(scenarioId: string, params?: { skip?: number; limit?: number }) {
-    return ApiClient.get(`/optimize/scenarios/${scenarioId}/jobs`, params);
+  static async getJobs(params?: { scenario_id?: string; skip?: number; limit?: number }) {
+    return ApiClient.get('/optimize/jobs', params);
   }
 
   /**
@@ -350,21 +350,21 @@ export class ReportsAPI {
    * Generate report
    */
   static async generateReport(reportData: any) {
-    return ApiClient.post('/reports/', reportData);
+    return ApiClient.post('/reports/reports', reportData);
   }
 
   /**
    * Get reports
    */
   static async getReports(params?: { skip?: number; limit?: number }) {
-    return ApiClient.get('/reports/', params);
+    return ApiClient.get('/reports/reports', params);
   }
 
   /**
    * Get report by ID
    */
   static async getReport(reportId: string) {
-    return ApiClient.get(`/reports/${reportId}`);
+    return ApiClient.get(`/reports/reports/${reportId}`);
   }
 
   /**
@@ -372,6 +372,27 @@ export class ReportsAPI {
    */
   static async getDashboard() {
     return ApiClient.get('/reports/dashboard/metrics');
+  }
+
+  /**
+   * Get report templates
+   */
+  static async getTemplates(params?: { skip?: number; limit?: number; category?: string }) {
+    return ApiClient.get('/reports/templates', params);
+  }
+
+  /**
+   * Get template by ID
+   */
+  static async getTemplate(templateId: string) {
+    return ApiClient.get(`/reports/templates/${templateId}`);
+  }
+
+  /**
+   * Delete report
+   */
+  static async deleteReport(reportId: string) {
+    return ApiClient.delete(`/reports/reports/${reportId}`);
   }
 
   /**

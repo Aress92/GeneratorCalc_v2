@@ -41,6 +41,7 @@ function ReportsPage({ user }: { user: User }) {
   const [metrics, setMetrics] = useState<DashboardMetricsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'reports' | 'templates'>('dashboard')
 
   const canCreateReports = hasPermission(user, 'engineer')
@@ -86,14 +87,8 @@ function ReportsPage({ user }: { user: User }) {
     }
 
     try {
-      const response = await fetch(`/api/v1/reports/reports/${reportId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        loadReports() // Reload reports
-      }
+      await ReportsAPI.deleteReport(reportId)
+      loadReports() // Reload reports
     } catch (error) {
       console.error('Error deleting report:', error)
     }
@@ -240,6 +235,7 @@ function ReportsPage({ user }: { user: User }) {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Report Templates</h2>
             <ReportTemplates onUseTemplate={(template) => {
               // Pre-fill create modal with template data
+              setSelectedTemplate(template)
               setShowCreateModal(true)
             }} />
           </div>
@@ -248,8 +244,12 @@ function ReportsPage({ user }: { user: User }) {
         {/* Create Report Modal */}
         {showCreateModal && (
           <ReportCreateModal
-            onClose={() => setShowCreateModal(false)}
+            onClose={() => {
+              setShowCreateModal(false)
+              setSelectedTemplate(null)
+            }}
             onCreate={handleCreateReport}
+            initialTemplate={selectedTemplate}
           />
         )}
       </div>

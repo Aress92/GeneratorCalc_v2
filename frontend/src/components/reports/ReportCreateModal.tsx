@@ -6,6 +6,7 @@ import { OptimizationAPI } from '@/lib/api-client'
 interface ReportCreateModalProps {
   onClose: () => void
   onCreate: (reportData: any) => void
+  initialTemplate?: any
 }
 
 interface OptimizationScenario {
@@ -67,7 +68,7 @@ const REPORT_FORMATS = [
   { id: 'json', name: 'JSON Data', icon: '🔧' }
 ]
 
-export function ReportCreateModal({ onClose, onCreate }: ReportCreateModalProps) {
+export function ReportCreateModal({ onClose, onCreate, initialTemplate }: ReportCreateModalProps) {
   const [step, setStep] = useState(1)
   const [formData, setFormData] = useState({
     title: '',
@@ -93,14 +94,22 @@ export function ReportCreateModal({ onClose, onCreate }: ReportCreateModalProps)
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - 30)
 
-    setFormData(prev => ({
-      ...prev,
+    // Initialize form with template data if provided
+    const initialData = {
+      title: initialTemplate?.name ? `${initialTemplate.name} - ${new Date().toLocaleDateString()}` : '',
+      description: initialTemplate?.description || '',
+      report_type: initialTemplate?.template_config?.report_type || '',
+      format: initialTemplate?.template_config?.format || 'pdf',
       date_range: {
         start_date: startDate.toISOString().split('T')[0],
         end_date: endDate.toISOString().split('T')[0]
-      }
-    }))
-  }, [])
+      },
+      report_config: initialTemplate?.template_config || {},
+      filters: initialTemplate?.default_filters || {}
+    }
+
+    setFormData(initialData)
+  }, [initialTemplate])
 
   const loadScenarios = async () => {
     try {
