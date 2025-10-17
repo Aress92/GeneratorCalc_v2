@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import table, column
 from sqlalchemy import String, DateTime, Boolean
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 
 from app.core.security import get_password_hash
@@ -41,7 +41,7 @@ def upgrade() -> None:
     )
 
     # Default users data
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     default_users = [
         {

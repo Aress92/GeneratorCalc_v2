@@ -6,6 +6,7 @@ Konfiguracja pytest i wspólne fixtures.
 
 import asyncio
 import pytest
+from uuid import uuid4
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -14,6 +15,7 @@ from httpx import AsyncClient
 from app.main import app
 from app.core.database import Base, get_db
 from app.core.config import settings
+from app.models.user import User
 
 
 # Test database URL
@@ -80,13 +82,15 @@ async def admin_token(test_client: AsyncClient, test_db: AsyncSession) -> str:
     """Create admin user and return auth token."""
     from app.models.user import User, UserRole
     from app.core.security import get_password_hash
+    from app.core.security import create_access_token
 
-    # Create admin user
+    # Create admin user with unique credentials
+    unique_id = uuid4().hex[:8]
     admin_user = User(
-        username="testadmin",
-        email="testadmin@test.com",
+        username=f"testadmin_{unique_id}",
+        email=f"testadmin_{unique_id}@test.com",
         full_name="Test Administrator",
-        password_hash=get_password_hash("testpassword"),
+        password_hash=get_password_hash("TestPassword123!@#"),
         role=UserRole.ADMIN,
         is_active=True,
         is_verified=True
@@ -96,17 +100,83 @@ async def admin_token(test_client: AsyncClient, test_db: AsyncSession) -> str:
     await test_db.commit()
     await test_db.refresh(admin_user)
 
-    # Login and get token
-    login_response = await test_client.post(
-        "/api/v1/auth/login",
-        json={"username": "testadmin", "password": "testpassword"}
+    # Create token directly instead of using login endpoint
+    token = create_access_token(
+        data={"sub": admin_user.username, "user_id": str(admin_user.id)}
     )
-
-    token_data = login_response.json()
-    return token_data["access_token"]
+    return token
 
 
 @pytest.fixture
 def auth_headers(admin_token: str) -> dict:
     """Return authorization headers with admin token."""
     return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest.fixture
+async def test_admin_user(test_db: AsyncSession) -> User:
+    """Create admin user for testing."""
+    from app.models.user import User, UserRole
+    from app.core.security import get_password_hash
+
+    unique_id = uuid4().hex[:8]
+    admin_user = User(
+        username=f"testadmin_{unique_id}",
+        email=f"testadmin_{unique_id}@test.com",
+        full_name="Test Administrator",
+        password_hash=get_password_hash("TestPassword123!@#"),
+        role=UserRole.ADMIN,
+        is_active=True,
+        is_verified=True
+    )
+
+    test_db.add(admin_user)
+    await test_db.commit()
+    await test_db.refresh(admin_user)
+    return admin_user
+
+
+@pytest.fixture
+async def test_engineer_user(test_db: AsyncSession) -> User:
+    """Create engineer user for testing."""
+    from app.models.user import User, UserRole
+    from app.core.security import get_password_hash
+
+    unique_id = uuid4().hex[:8]
+    engineer_user = User(
+        username=f"testengineer_{unique_id}",
+        email=f"engineer_{unique_id}@test.com",
+        full_name="Test Engineer",
+        password_hash=get_password_hash("TestPassword123!@#"),
+        role=UserRole.ENGINEER,
+        is_active=True,
+        is_verified=True
+    )
+
+    test_db.add(engineer_user)
+    await test_db.commit()
+    await test_db.refresh(engineer_user)
+    return engineer_user
+
+
+@pytest.fixture
+async def test_viewer_user(test_db: AsyncSession) -> User:
+    """Create viewer user for testing."""
+    from app.models.user import User, UserRole
+    from app.core.security import get_password_hash
+
+    unique_id = uuid4().hex[:8]
+    viewer_user = User(
+        username=f"testviewer_{unique_id}",
+        email=f"viewer_{unique_id}@test.com",
+        full_name="Test Viewer",
+        password_hash=get_password_hash("TestPassword123!@#"),
+        role=UserRole.VIEWER,
+        is_active=True,
+        is_verified=True
+    )
+
+    test_db.add(viewer_user)
+    await test_db.commit()
+    await test_db.refresh(viewer_user)
+    return viewer_user

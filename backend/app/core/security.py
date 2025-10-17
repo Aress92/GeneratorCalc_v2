@@ -4,8 +4,10 @@ Security utilities for authentication and authorization.
 Moduł bezpieczeństwa z obsługą JWT i haszowania haseł.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Any, Dict, Optional, Union
+import hashlib
+import base64
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -14,7 +16,14 @@ from app.core.config import settings
 
 
 # Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Using bcrypt with explicit rounds to avoid compatibility issues
+# SHA-256 pre-hashing is applied for passwords > 72 bytes
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=12,  # Explicit rounds for better compatibility
+    bcrypt__ident="2b"   # Use 2b variant for better compatibility
+)
 
 
 def create_access_token(
@@ -34,16 +43,16 @@ def create_access_token(
         Encoded JWT token
     """
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
+        expire = datetime.now(UTC) + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
     to_encode = {
         "exp": expire,
         "sub": str(subject),
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(UTC),
         "type": "access",
     }
 
@@ -79,6 +88,31 @@ def verify_token(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+def _normalize_password(password: str) -> str:
+    """
+    Normalize password for bcrypt (handle passwords > 72 bytes).
+
+    Uses SHA-256 to hash long passwords before bcrypt to avoid truncation.
+    This is a security best practice for bcrypt.
+
+    Args:
+        password: Plain text password
+
+    Returns:
+        Normalized password suitable for bcrypt (max 72 bytes)
+    """
+    # Encode to bytes to check actual byte length
+    password_bytes = password.encode('utf-8')
+
+    # If password is longer than 72 bytes, use SHA-256 hash
+    if len(password_bytes) > 72:
+        # Hash with SHA-256 and encode as base64 to get printable string
+        sha_hash = hashlib.sha256(password_bytes).digest()
+        return base64.b64encode(sha_hash).decode('ascii')
+
+    return password
+
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verify plain password against hashed password.
@@ -90,12 +124,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    normalized_password = _normalize_password(plain_password)
+    return pwd_context.verify(normalized_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
     """
     Hash password using bcrypt.
+
+    Automatically handles passwords longer than 72 bytes by using SHA-256
+    pre-hashing to avoid bcrypt truncation issues.
 
     Args:
         password: Plain text password
@@ -103,7 +141,8 @@ def get_password_hash(password: str) -> str:
     Returns:
         Hashed password
     """
-    return pwd_context.hash(password)
+    normalized_password = _normalize_password(password)
+    return pwd_context.hash(normalized_password)
 
 
 def validate_password_strength(password: str) -> tuple[bool, list[str]]:
@@ -179,7 +218,7 @@ def verify_reset_token(token: str, stored_token: str, expires_at: datetime) -> b
     Returns:
         True if token is valid, False otherwise
     """
-    if datetime.utcnow() > expires_at:
+    if datetime.now(UTC) > expires_at:
         return False
 
     return token == stored_token

@@ -1,7 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
+// TODO: Re-enable sonner after fixing pnpm installation
+// import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -10,8 +12,12 @@ export const metadata: Metadata = {
   description: 'System optymalizacji regeneratorów pieców szklarskich',
   keywords: ['forglass', 'regenerator', 'optimization', 'glass', 'furnace'],
   authors: [{ name: 'Forglass Engineering Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   robots: 'noindex, nofollow', // Production deployment should remove this
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -26,6 +32,8 @@ export default function RootLayout({
           <div className="min-h-screen bg-background font-sans antialiased">
             {children}
           </div>
+          {/* TODO: Re-enable Toaster after fixing pnpm installation */}
+          {/* <Toaster position="top-right" richColors closeButton /> */}
         </AuthProvider>
       </body>
     </html>

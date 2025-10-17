@@ -1,0 +1,338 @@
+"""
+Tests for unit conversion service.
+
+Testy dla serwisu konwersji jednostek.
+"""
+
+import pytest
+from app.services.unit_conversion import UnitConversionService, UnitType
+
+
+class TestUnitConverter:
+    """Test unit conversion functionality."""
+
+    @pytest.fixture
+    def converter(self) -> UnitConverter:
+        """Create unit converter instance."""
+        return UnitConverter()
+
+    def test_temperature_conversions(self, converter: UnitConverter):
+        """Test temperature unit conversions."""
+        # Celsius to Fahrenheit
+        result = converter.convert_temperature(100, "celsius", "fahrenheit")
+        assert abs(result - 212.0) < 0.001
+
+        # Fahrenheit to Celsius
+        result = converter.convert_temperature(212, "fahrenheit", "celsius")
+        assert abs(result - 100.0) < 0.001
+
+        # Celsius to Kelvin
+        result = converter.convert_temperature(0, "celsius", "kelvin")
+        assert abs(result - 273.15) < 0.001
+
+        # Kelvin to Celsius
+        result = converter.convert_temperature(273.15, "kelvin", "celsius")
+        assert abs(result - 0.0) < 0.001
+
+    def test_temperature_absolute_zero(self, converter: UnitConverter):
+        """Test temperature conversions at absolute zero."""
+        # Absolute zero in Kelvin
+        result = converter.convert_temperature(0, "kelvin", "celsius")
+        assert abs(result - (-273.15)) < 0.001
+
+        result = converter.convert_temperature(0, "kelvin", "fahrenheit")
+        assert abs(result - (-459.67)) < 0.001
+
+    def test_length_conversions(self, converter: UnitConverter):
+        """Test length unit conversions."""
+        # Meters to millimeters
+        result = converter.convert_length(1, "meters", "millimeters")
+        assert abs(result - 1000.0) < 0.001
+
+        # Millimeters to meters
+        result = converter.convert_length(1000, "millimeters", "meters")
+        assert abs(result - 1.0) < 0.001
+
+        # Meters to feet
+        result = converter.convert_length(1, "meters", "feet")
+        assert abs(result - 3.28084) < 0.001
+
+        # Feet to meters
+        result = converter.convert_length(3.28084, "feet", "meters")
+        assert abs(result - 1.0) < 0.001
+
+        # Inches to millimeters
+        result = converter.convert_length(1, "inches", "millimeters")
+        assert abs(result - 25.4) < 0.001
+
+    def test_pressure_conversions(self, converter: UnitConverter):
+        """Test pressure unit conversions."""
+        # Pascal to kPa
+        result = converter.convert_pressure(1000, "pascal", "kpascal")
+        assert abs(result - 1.0) < 0.001
+
+        # kPa to Pascal
+        result = converter.convert_pressure(1, "kpascal", "pascal")
+        assert abs(result - 1000.0) < 0.001
+
+        # Pascal to bar
+        result = converter.convert_pressure(100000, "pascal", "bar")
+        assert abs(result - 1.0) < 0.001
+
+        # PSI to Pascal
+        result = converter.convert_pressure(1, "psi", "pascal")
+        assert abs(result - 6894.76) < 0.1
+
+        # Pascal to mmHg
+        result = converter.convert_pressure(133.322, "pascal", "mmhg")
+        assert abs(result - 1.0) < 0.001
+
+    def test_mass_conversions(self, converter: UnitConverter):
+        """Test mass unit conversions."""
+        # Kilograms to grams
+        result = converter.convert_mass(1, "kilograms", "grams")
+        assert abs(result - 1000.0) < 0.001
+
+        # Grams to kilograms
+        result = converter.convert_mass(1000, "grams", "kilograms")
+        assert abs(result - 1.0) < 0.001
+
+        # Kilograms to pounds
+        result = converter.convert_mass(1, "kilograms", "pounds")
+        assert abs(result - 2.20462) < 0.001
+
+        # Pounds to kilograms
+        result = converter.convert_mass(2.20462, "pounds", "kilograms")
+        assert abs(result - 1.0) < 0.001
+
+        # Tons to kilograms
+        result = converter.convert_mass(1, "tons", "kilograms")
+        assert abs(result - 1000.0) < 0.001
+
+    def test_energy_conversions(self, converter: UnitConverter):
+        """Test energy unit conversions."""
+        # Joules to kJ
+        result = converter.convert_energy(1000, "joules", "kilojoules")
+        assert abs(result - 1.0) < 0.001
+
+        # kJ to Joules
+        result = converter.convert_energy(1, "kilojoules", "joules")
+        assert abs(result - 1000.0) < 0.001
+
+        # kWh to Joules
+        result = converter.convert_energy(1, "kwh", "joules")
+        assert abs(result - 3600000.0) < 1.0
+
+        # BTU to Joules
+        result = converter.convert_energy(1, "btu", "joules")
+        assert abs(result - 1055.06) < 0.1
+
+        # Calories to Joules
+        result = converter.convert_energy(1, "calories", "joules")
+        assert abs(result - 4.184) < 0.001
+
+    def test_power_conversions(self, converter: UnitConverter):
+        """Test power unit conversions."""
+        # Watts to kW
+        result = converter.convert_power(1000, "watts", "kilowatts")
+        assert abs(result - 1.0) < 0.001
+
+        # kW to Watts
+        result = converter.convert_power(1, "kilowatts", "watts")
+        assert abs(result - 1000.0) < 0.001
+
+        # HP to Watts
+        result = converter.convert_power(1, "horsepower", "watts")
+        assert abs(result - 745.7) < 0.1
+
+        # Watts to HP
+        result = converter.convert_power(745.7, "watts", "horsepower")
+        assert abs(result - 1.0) < 0.001
+
+    def test_flow_rate_conversions(self, converter: UnitConverter):
+        """Test flow rate unit conversions."""
+        # m³/s to m³/h
+        result = converter.convert_flow_rate(1, "cubic_meters_per_second", "cubic_meters_per_hour")
+        assert abs(result - 3600.0) < 0.001
+
+        # m³/h to m³/s
+        result = converter.convert_flow_rate(3600, "cubic_meters_per_hour", "cubic_meters_per_second")
+        assert abs(result - 1.0) < 0.001
+
+        # CFM to m³/s
+        result = converter.convert_flow_rate(1, "cfm", "cubic_meters_per_second")
+        assert abs(result - 0.000471947) < 0.000001
+
+        # L/min to m³/s
+        result = converter.convert_flow_rate(1, "liters_per_minute", "cubic_meters_per_second")
+        assert abs(result - (1/60/1000)) < 0.000001
+
+    def test_thermal_conductivity_conversions(self, converter: UnitConverter):
+        """Test thermal conductivity unit conversions."""
+        # W/m·K to W/cm·K
+        result = converter.convert_thermal_conductivity(1, "w_per_m_k", "w_per_cm_k")
+        assert abs(result - 0.01) < 0.001
+
+        # W/cm·K to W/m·K
+        result = converter.convert_thermal_conductivity(0.01, "w_per_cm_k", "w_per_m_k")
+        assert abs(result - 1.0) < 0.001
+
+        # BTU/hr·ft·°F to W/m·K
+        result = converter.convert_thermal_conductivity(1, "btu_per_hr_ft_f", "w_per_m_k")
+        assert abs(result - 1.7307) < 0.001
+
+    def test_specific_heat_conversions(self, converter: UnitConverter):
+        """Test specific heat unit conversions."""
+        # J/kg·K to J/g·K
+        result = converter.convert_specific_heat(1000, "j_per_kg_k", "j_per_g_k")
+        assert abs(result - 1.0) < 0.001
+
+        # J/g·K to J/kg·K
+        result = converter.convert_specific_heat(1, "j_per_g_k", "j_per_kg_k")
+        assert abs(result - 1000.0) < 0.001
+
+        # BTU/lb·°F to J/kg·K
+        result = converter.convert_specific_heat(1, "btu_per_lb_f", "j_per_kg_k")
+        assert abs(result - 4186.8) < 0.1
+
+    def test_density_conversions(self, converter: UnitConverter):
+        """Test density unit conversions."""
+        # kg/m³ to g/cm³
+        result = converter.convert_density(1000, "kg_per_cubic_meter", "g_per_cubic_cm")
+        assert abs(result - 1.0) < 0.001
+
+        # g/cm³ to kg/m³
+        result = converter.convert_density(1, "g_per_cubic_cm", "kg_per_cubic_meter")
+        assert abs(result - 1000.0) < 0.001
+
+        # lb/ft³ to kg/m³
+        result = converter.convert_density(1, "lb_per_cubic_ft", "kg_per_cubic_meter")
+        assert abs(result - 16.0185) < 0.001
+
+    def test_same_unit_conversion(self, converter: UnitConverter):
+        """Test conversion between same units."""
+        # Same unit should return original value
+        result = converter.convert_temperature(100, "celsius", "celsius")
+        assert abs(result - 100.0) < 0.001
+
+        result = converter.convert_length(5, "meters", "meters")
+        assert abs(result - 5.0) < 0.001
+
+        result = converter.convert_pressure(1000, "pascal", "pascal")
+        assert abs(result - 1000.0) < 0.001
+
+    def test_invalid_unit_conversion(self, converter: UnitConverter):
+        """Test conversion with invalid units."""
+        with pytest.raises(ConversionError):
+            converter.convert_temperature(100, "invalid_unit", "celsius")
+
+        with pytest.raises(ConversionError):
+            converter.convert_length(5, "meters", "invalid_unit")
+
+        with pytest.raises(ConversionError):
+            converter.convert_pressure(1000, "invalid_from", "invalid_to")
+
+    def test_negative_temperature_validation(self, converter: UnitConverter):
+        """Test validation for temperatures below absolute zero."""
+        # Should raise error for temperatures below absolute zero in Kelvin
+        with pytest.raises(ConversionError, match="below absolute zero"):
+            converter.convert_temperature(-1, "kelvin", "celsius")
+
+        # Should raise error for impossible Celsius temperatures
+        with pytest.raises(ConversionError, match="below absolute zero"):
+            converter.convert_temperature(-274, "celsius", "kelvin")
+
+    def test_negative_value_validation(self, converter: UnitConverter):
+        """Test validation for negative values where inappropriate."""
+        # Negative mass should raise error
+        with pytest.raises(ConversionError, match="cannot be negative"):
+            converter.convert_mass(-1, "kilograms", "grams")
+
+        # Negative length should raise error
+        with pytest.raises(ConversionError, match="cannot be negative"):
+            converter.convert_length(-1, "meters", "millimeters")
+
+        # Negative pressure should raise error
+        with pytest.raises(ConversionError, match="cannot be negative"):
+            converter.convert_pressure(-1, "pascal", "bar")
+
+    def test_bulk_conversion(self, converter: UnitConverter):
+        """Test bulk conversion of multiple values."""
+        values = [0, 100, 200, 500, 1000]
+        results = converter.bulk_convert_temperature(values, "celsius", "fahrenheit")
+
+        expected = [32, 212, 392, 932, 1832]
+        for i, result in enumerate(results):
+            assert abs(result - expected[i]) < 0.001
+
+    def test_conversion_precision(self, converter: UnitConverter):
+        """Test conversion precision with very small and large numbers."""
+        # Very small number
+        result = converter.convert_length(0.000001, "meters", "millimeters")
+        assert abs(result - 0.001) < 0.000001
+
+        # Very large number
+        result = converter.convert_length(1000000, "millimeters", "kilometers")
+        assert abs(result - 1.0) < 0.001
+
+    def test_get_available_units(self, converter: UnitConverter):
+        """Test getting available units for each category."""
+        temp_units = converter.get_available_units("temperature")
+        assert "celsius" in temp_units
+        assert "fahrenheit" in temp_units
+        assert "kelvin" in temp_units
+
+        length_units = converter.get_available_units("length")
+        assert "meters" in length_units
+        assert "millimeters" in length_units
+        assert "feet" in length_units
+
+        pressure_units = converter.get_available_units("pressure")
+        assert "pascal" in pressure_units
+        assert "bar" in pressure_units
+        assert "psi" in pressure_units
+
+    def test_get_unit_info(self, converter: UnitConverter):
+        """Test getting unit information."""
+        info = converter.get_unit_info("celsius")
+        assert info["category"] == "temperature"
+        assert info["symbol"] == "°C"
+        assert "description" in info
+
+        info = converter.get_unit_info("meters")
+        assert info["category"] == "length"
+        assert info["symbol"] == "m"
+
+    def test_validate_conversion_request(self, converter: UnitConverter):
+        """Test validation of conversion requests."""
+        # Valid request
+        is_valid = converter.validate_conversion_request("temperature", "celsius", "fahrenheit")
+        assert is_valid is True
+
+        # Invalid category
+        is_valid = converter.validate_conversion_request("invalid_category", "celsius", "fahrenheit")
+        assert is_valid is False
+
+        # Mixed categories
+        is_valid = converter.validate_conversion_request("temperature", "celsius", "meters")
+        assert is_valid is False
+
+    def test_conversion_factors(self, converter: UnitConverter):
+        """Test that conversion factors are symmetric."""
+        # Test temperature conversion symmetry
+        temp_c = 100
+        temp_f = converter.convert_temperature(temp_c, "celsius", "fahrenheit")
+        temp_c_back = converter.convert_temperature(temp_f, "fahrenheit", "celsius")
+        assert abs(temp_c - temp_c_back) < 0.001
+
+        # Test length conversion symmetry
+        length_m = 10
+        length_ft = converter.convert_length(length_m, "meters", "feet")
+        length_m_back = converter.convert_length(length_ft, "feet", "meters")
+        assert abs(length_m - length_m_back) < 0.001
+
+        # Test pressure conversion symmetry
+        pressure_pa = 100000
+        pressure_bar = converter.convert_pressure(pressure_pa, "pascal", "bar")
+        pressure_pa_back = converter.convert_pressure(pressure_bar, "bar", "pascal")
+        assert abs(pressure_pa - pressure_pa_back) < 0.001

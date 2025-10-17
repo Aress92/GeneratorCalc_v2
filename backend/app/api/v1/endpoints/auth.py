@@ -9,7 +9,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, Cookie, Request, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db, get_current_user, require_admin
@@ -34,12 +34,33 @@ security = HTTPBearer(auto_error=False)
 
 @router.post("/login", response_model=LoginResponse)
 async def login(
-    user_login: UserLogin,
     response: Response,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Login user and set HttpOnly cookie with JWT token."""
+    """
+    Login user and set HttpOnly cookie with JWT token.
+
+    Accepts both JSON body (Content-Type: application/json) and
+    form-data (Content-Type: application/x-www-form-urlencoded).
+    """
     auth_service = AuthService(db)
+
+    # Check Content-Type to determine which format was used
+    content_type = request.headers.get("content-type", "").lower()
+
+    if "application/json" in content_type:
+        # Parse JSON body
+        body = await request.json()
+        user_login = UserLogin(**body)
+    else:
+        # Parse form-data
+        form = await request.form()
+        user_login = UserLogin(
+            username=form.get("username"),
+            password=form.get("password")
+        )
+
     login_response = await auth_service.login_user(user_login)
 
     # Set HttpOnly cookie with JWT token

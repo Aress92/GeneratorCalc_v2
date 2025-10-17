@@ -322,7 +322,7 @@ class MaterialsService:
             Updated material or None if not found
         """
         try:
-            from datetime import datetime
+            from datetime import datetime, UTC
 
             result = await self.db.execute(
                 update(Material)
@@ -330,7 +330,7 @@ class MaterialsService:
                 .values(
                     approval_status=approval_status,
                     approved_by_user_id=approver_user_id,
-                    approved_at=datetime.utcnow()
+                    approved_at=datetime.now(UTC)
                 )
             )
 

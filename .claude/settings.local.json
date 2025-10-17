@@ -21,7 +21,17 @@
       "Bash(powershell:*)",
       "Bash(docker:*)",
       "Bash(tasklist)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTkzNTM4ODUsInN1YiI6IjY0YzQxMzE1LTllYjUtNDg3OC1iY2RiLTNlOTQzODQ3ZTc2ZiIsImlhdCI6MTc1OTMyNTA4NSwidHlwZSI6ImFjY2VzcyIsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiQURNSU4iLCJpc192ZXJpZmllZCI6dHJ1ZX0.kz5u8sJlLAgGA51acgu1NR_1afotGB89n9JPbFOTCcM\")",
+      "Bash(timeout:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(while read line)",
+      "Bash(done)",
+      "Bash(awk:*)",
+      "Bash(sort:*)",
+      "Bash(pnpm install:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

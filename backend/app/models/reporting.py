@@ -4,7 +4,7 @@ Reporting models for system performance and analytics.
 Modele raportowania dla wydajności systemu i analiz.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Dict, List, Optional
 import uuid
@@ -65,6 +65,7 @@ class Report(Base):
 
     id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=False)
+    template_id = Column(CHAR(36), ForeignKey("report_templates.id"), nullable=True)
 
     # Report metadata
     title = Column(String(255), nullable=False)
@@ -108,11 +109,12 @@ class Report(Base):
     shared_with_users = Column(JSON, default=list)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User")
+    template = relationship("ReportTemplate")
     report_data = relationship("ReportData", back_populates="report")
     report_exports = relationship("ReportExport", back_populates="report")
 
@@ -146,8 +148,8 @@ class ReportData(Base):
     data_freshness_hours = Column(Float, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     report = relationship("Report", back_populates="report_data")
@@ -181,7 +183,7 @@ class ReportExport(Base):
     is_available = Column(Boolean, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     report = relationship("Report", back_populates="report_exports")
@@ -220,14 +222,13 @@ class ReportTemplate(Base):
     parent_template_id = Column(CHAR(36), ForeignKey("report_templates.id"), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     created_by = relationship("User")
     parent_template = relationship("ReportTemplate", remote_side=[id])
-    # TODO: Add template_id column to Report model for this relationship
-    # generated_reports = relationship("Report", foreign_keys="Report.template_id")
+    generated_reports = relationship("Report", foreign_keys="Report.template_id", overlaps="template")
 
 
 class ReportSchedule(Base):
@@ -264,8 +265,8 @@ class ReportSchedule(Base):
     retention_days = Column(Integer, default=30)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User")
@@ -300,7 +301,7 @@ class SystemMetrics(Base):
     sample_count = Column(Integer, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Indexes for efficient querying
     __table_args__ = (

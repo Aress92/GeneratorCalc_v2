@@ -4,7 +4,7 @@ Optimization models for regenerator optimization engine.
 Modele optymalizacji dla silnika optymalizacji regeneratorów.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from typing import Dict, List, Optional
 import uuid
@@ -91,13 +91,13 @@ class OptimizationScenario(Base):
     max_runtime_minutes = Column(Integer, default=120)
 
     # Status and progress
-    status = Column(String(20), nullable=False, default=ScenarioType.BASELINE)
+    status = Column(String(20), nullable=False, default="active")  # active, archived, deleted
     is_active = Column(Boolean, default=True)
     is_template = Column(Boolean, default=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     user = relationship("User")
@@ -149,14 +149,14 @@ class OptimizationJob(Base):
     cpu_usage_percentage = Column(Float, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     scenario = relationship("OptimizationScenario", back_populates="optimization_jobs")
     user = relationship("User")
-    results = relationship("OptimizationResult", back_populates="job")
-    iterations = relationship("OptimizationIteration", back_populates="job")
+    results = relationship("OptimizationResult", back_populates="job", cascade="all, delete-orphan")
+    iterations = relationship("OptimizationIteration", back_populates="job", cascade="all, delete-orphan")
 
 
 class OptimizationResult(Base):
@@ -211,8 +211,8 @@ class OptimizationResult(Base):
     optimization_confidence = Column(Float, nullable=True)  # 0-1 score
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     job = relationship("OptimizationJob", back_populates="results")
@@ -257,7 +257,7 @@ class OptimizationIteration(Base):
     is_improvement = Column(Boolean, default=False)
 
     # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     # Relationships
     job = relationship("OptimizationJob", back_populates="iterations")
@@ -294,8 +294,8 @@ class OptimizationTemplate(Base):
     created_by_user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     # Relationships
     created_by = relationship("User")

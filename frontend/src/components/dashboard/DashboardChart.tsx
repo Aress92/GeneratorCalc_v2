@@ -14,14 +14,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  PieLabelRenderProps
 } from 'recharts';
-
-interface ChartDataPoint {
-  name: string;
-  value: number;
-  [key: string]: any;
-}
+import type { ChartDataPoint } from '@/types/api';
 
 interface DashboardChartProps {
   title: string;
@@ -94,7 +90,7 @@ export default function DashboardChart({
     );
   }
 
-  const renderChart = () => {
+  const renderChart = (): React.ReactElement => {
     switch (type) {
       case 'line':
         return (
@@ -178,7 +174,9 @@ export default function DashboardChart({
               cy="50%"
               outerRadius={80}
               dataKey={dataKey}
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }: PieLabelRenderProps) =>
+                `${name} ${(Number(percent) * 100).toFixed(0)}%`
+              }
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
@@ -190,7 +188,7 @@ export default function DashboardChart({
         );
 
       default:
-        return null;
+        return <div>Nieobsługiwany typ wykresu</div>;
     }
   };
 

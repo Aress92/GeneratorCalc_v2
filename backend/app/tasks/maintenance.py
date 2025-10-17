@@ -6,9 +6,11 @@ Zadania konserwacyjne dla okresowego czyszczenia i zdrowia systemu.
 
 import os
 import structlog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from typing import List
+import asyncio
+import nest_asyncio
 
 from celery import Task
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,8 +30,16 @@ class AsyncCeleryTask(Task):
     """Base class for async Celery tasks."""
 
     def __call__(self, *args, **kwargs):
-        import asyncio
-        return asyncio.get_event_loop().run_until_complete(self._async_call(*args, **kwargs))
+        # Apply nest_asyncio to allow nested event loops in Celery worker context
+        nest_asyncio.apply()
+
+        # Create new event loop for this task
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self._async_call(*args, **kwargs))
+        finally:
+            loop.close()
 
     async def _async_call(self, *args, **kwargs):
         # This method should be overridden by subclasses
@@ -45,7 +55,7 @@ async def cleanup_expired_tasks(self) -> dict:
     """
     try:
         async with AsyncSessionLocal() as db:
-            cutoff_date = datetime.utcnow() - timedelta(days=7)  # 7 days ago
+            cutoff_date = datetime.now(UTC) - timedelta(days=7)  # 7 days ago
 
             # Count records to be deleted
             import_jobs_query = select(ImportJob).where(
@@ -98,7 +108,7 @@ async def cleanup_expired_tasks(self) -> dict:
                 "status": "success",
                 "import_jobs_cleaned": import_jobs_count,
                 "optimization_jobs_cleaned": optimization_jobs_count,
-                "cleaned_at": datetime.utcnow().isoformat()
+                "cleaned_at": datetime.now(UTC).isoformat()
             }
 
     except Exception as e:
@@ -106,7 +116,7 @@ async def cleanup_expired_tasks(self) -> dict:
         return {
             "status": "error",
             "error": str(e),
-            "cleaned_at": datetime.utcnow().isoformat()
+            "cleaned_at": datetime.now(UTC).isoformat()
         }
 
 
@@ -162,7 +172,7 @@ async def cleanup_old_files(self) -> dict:
             "files_cleaned": cleaned_files,
             "total_size_bytes": total_size,
             "total_size_mb": round(total_size / (1024 * 1024), 2),
-            "cleaned_at": datetime.utcnow().isoformat()
+            "cleaned_at": datetime.now(UTC).isoformat()
         }
 
     except Exception as e:
@@ -170,5 +180,5 @@ async def cleanup_old_files(self) -> dict:
         return {
             "status": "error",
             "error": str(e),
-            "cleaned_at": datetime.utcnow().isoformat()
+            "cleaned_at": datetime.now(UTC).isoformat()
         }

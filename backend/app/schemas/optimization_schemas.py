@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from app.models.optimization import (
     OptimizationStatus, OptimizationObjective, OptimizationAlgorithm,
@@ -77,27 +77,80 @@ class OptimizationConstraint(BaseModel):
 # Scenario Schemas
 class OptimizationScenarioCreate(BaseModel):
     """Create optimization scenario."""
-    name: str = Field(..., min_length=1, max_length=255, description="Scenario name")
-    description: Optional[str] = Field(None, max_length=2000, description="Scenario description")
-    scenario_type: ScenarioTypeSchema = Field(..., description="Type of optimization scenario")
-    base_configuration_id: str = Field(..., description="Base regenerator configuration ID")
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Nazwa scenariusza",
+        json_schema_extra={"example": "Optymalizacja geometrii regeneratora"}
+    )
+    description: Optional[str] = Field(
+        None,
+        max_length=2000,
+        description="Opis scenariusza optymalizacji",
+        json_schema_extra={"example": "Optymalizacja wymiarów checkerów dla zwiększenia efektywności"}
+    )
+    scenario_type: ScenarioTypeSchema = Field(
+        ...,
+        description="Typ scenariusza: geometry_optimization, material_optimization, operating_conditions, comprehensive"
+    )
+    base_configuration_id: str = Field(
+        ...,
+        description="ID bazowej konfiguracji regeneratora (UUID)",
+        json_schema_extra={"example": "4cfe5ca4-c1d1-425e-9d2b-e2d8ee9c838a"}
+    )
 
     # Optimization setup
-    objective: OptimizationObjectiveSchema = Field(..., description="Optimization objective")
-    algorithm: OptimizationAlgorithmSchema = Field(OptimizationAlgorithmSchema.SLSQP, description="Algorithm to use")
+    objective: OptimizationObjectiveSchema = Field(
+        ...,
+        description="Cel optymalizacji: minimize_fuel_consumption, minimize_co2_emissions, maximize_efficiency"
+    )
+    algorithm: OptimizationAlgorithmSchema = Field(
+        OptimizationAlgorithmSchema.SLSQP,
+        description="Algorytm optymalizacji (zalecany: SLSQP)"
+    )
 
     # Variables and constraints
-    design_variables: Dict[str, DesignVariableConfig] = Field(..., description="Design variables to optimize")
-    constraints: Optional[List[OptimizationConstraint]] = Field([], description="Optimization constraints")
+    design_variables: Dict[str, Any] = Field(
+        ...,
+        description="Zmienne projektowe do optymalizacji (np. checker_height, checker_spacing)"
+    )
+    constraints: Optional[List[Dict[str, Any]]] = Field(
+        [],
+        description="Ograniczenia optymalizacji (opcjonalne)"
+    )
 
     # Algorithm parameters
-    max_iterations: int = Field(1000, ge=10, le=10000, description="Maximum iterations")
-    max_function_evaluations: int = Field(5000, ge=50, le=50000, description="Maximum function evaluations")
-    tolerance: float = Field(1e-6, ge=1e-12, le=1e-2, description="Convergence tolerance")
-    max_runtime_minutes: int = Field(120, ge=1, le=720, description="Maximum runtime in minutes")
+    max_iterations: int = Field(
+        1000,
+        ge=10,
+        le=10000,
+        description="Maksymalna liczba iteracji (10-10000, domyślnie 1000)"
+    )
+    max_function_evaluations: int = Field(
+        5000,
+        ge=50,
+        le=50000,
+        description="Maksymalna liczba ewaluacji funkcji celu (50-50000, domyślnie 5000)"
+    )
+    tolerance: float = Field(
+        1e-6,
+        ge=1e-12,
+        le=1e-2,
+        description="Tolerancja zbieżności (1e-12 do 1e-2, domyślnie 1e-6)"
+    )
+    max_runtime_minutes: int = Field(
+        120,
+        ge=1,
+        le=720,
+        description="Maksymalny czas wykonania w minutach (1-720, domyślnie 120)"
+    )
 
     # Multi-objective weights
-    objective_weights: Optional[Dict[str, float]] = Field(None, description="Weights for multi-objective optimization")
+    objective_weights: Optional[Dict[str, float]] = Field(
+        None,
+        description="Wagi dla optymalizacji wielokryterialnej (opcjonalne)"
+    )
 
 
 class OptimizationScenarioUpdate(BaseModel):
@@ -109,8 +162,8 @@ class OptimizationScenarioUpdate(BaseModel):
     objective: Optional[OptimizationObjectiveSchema] = None
     algorithm: Optional[OptimizationAlgorithmSchema] = None
 
-    design_variables: Optional[Dict[str, DesignVariableConfig]] = None
-    constraints: Optional[List[OptimizationConstraint]] = None
+    design_variables: Optional[Dict[str, Any]] = None
+    constraints: Optional[List[Dict[str, Any]]] = None
 
     max_iterations: Optional[int] = Field(None, ge=10, le=10000)
     max_function_evaluations: Optional[int] = Field(None, ge=50, le=50000)
@@ -213,6 +266,38 @@ class OptimizationProgress(BaseModel):
     constraint_violations: Optional[Dict[str, float]] = Field(None, description="Current constraint violations")
 
 
+# Calculation Preview Schemas
+class CalculationStepDetail(BaseModel):
+    """Detailed calculation step with formula and result."""
+    step_name: str = Field(..., description="Step name (e.g., 'Reynolds Number')")
+    formula: str = Field(..., description="Mathematical formula")
+    substitution: str = Field(..., description="Formula with actual values substituted")
+    result: float = Field(..., description="Calculated result")
+    unit: str = Field(..., description="Physical unit")
+    explanation: str = Field(..., description="Brief explanation in Polish")
+
+
+class OptimizationCalculationPreview(BaseModel):
+    """Preview of optimization calculations for a scenario."""
+    scenario_id: str
+    scenario_name: str
+    design_variables: Dict[str, float] = Field(..., description="Current design variable values")
+
+    # Step-by-step calculations
+    geometry_calculations: List[CalculationStepDetail] = Field(..., description="Geometry calculations")
+    heat_transfer_calculations: List[CalculationStepDetail] = Field(..., description="Heat transfer calculations")
+    performance_calculations: List[CalculationStepDetail] = Field(..., description="Performance calculations")
+    economic_calculations: List[CalculationStepDetail] = Field(..., description="Economic calculations")
+
+    # Final results
+    final_metrics: Dict[str, Any] = Field(..., description="Final performance metrics")
+    constraints_check: Dict[str, Dict[str, Any]] = Field(..., description="Constraint violations check")
+
+    # Configuration
+    operating_conditions: Dict[str, Any] = Field(..., description="Operating conditions used")
+    material_properties: Dict[str, Any] = Field(..., description="Material properties used")
+
+
 # Results Schemas
 class PerformanceMetrics(BaseModel):
     """Performance metrics for regenerator."""
@@ -255,44 +340,53 @@ class OptimizationResultResponse(BaseModel):
 
     # Objective results
     objective_value: float
-    objective_components: Optional[Dict[str, float]]
-    constraint_violations: Optional[Dict[str, float]]
+    objective_components: Optional[Dict[str, float]] = None
+    constraint_violations: Optional[Dict[str, float]] = None
 
     # Performance comparison
-    baseline_metrics: PerformanceMetrics
-    optimized_metrics: PerformanceMetrics
+    baseline_metrics: Union[PerformanceMetrics, Dict[str, Any]]
+    optimized_metrics: Union[PerformanceMetrics, Dict[str, Any]]
     improvement_percentages: Dict[str, float]
 
     # Economic analysis
-    economic_analysis: EconomicAnalysis
+    fuel_savings_percentage: Optional[float] = None
+    co2_reduction_percentage: Optional[float] = None
+    annual_cost_savings: Optional[float] = None
+    payback_period_months: Optional[float] = None
 
     # Technical results
-    thermal_efficiency: Optional[float]
-    pressure_drop: Optional[float]
-    heat_transfer_coefficient: Optional[float]
-    ntu_value: Optional[float]
+    thermal_efficiency: Optional[float] = None
+    pressure_drop: Optional[float] = None
+    heat_transfer_coefficient: Optional[float] = None
+    ntu_value: Optional[float] = None
 
     # Geometry results (if applicable)
-    optimized_geometry: Optional[Dict[str, Any]]
-    volume_changes: Optional[Dict[str, float]]
-    surface_area_changes: Optional[Dict[str, float]]
+    optimized_geometry: Optional[Dict[str, Any]] = None
+    volume_changes: Optional[Dict[str, float]] = None
+    surface_area_changes: Optional[Dict[str, float]] = None
 
     # Material results (if applicable)
-    material_recommendations: Optional[List[Dict[str, Any]]]
-    material_cost_impact: Optional[Dict[str, float]]
+    material_recommendations: Optional[List[Dict[str, Any]]] = None
+    material_cost_impact: Optional[Dict[str, float]] = None
 
     # Analysis
-    sensitivity_analysis: Optional[SensitivityAnalysis]
+    sensitivity_analysis: Optional[Dict[str, Any]] = None
 
     # Quality metrics
-    solution_feasibility: Optional[float]
-    optimization_confidence: Optional[float]
+    solution_feasibility: Optional[float] = None
+    optimization_confidence: Optional[float] = None
 
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('baseline_metrics', 'optimized_metrics', mode='before')
+    @classmethod
+    def parse_metrics(cls, v):
+        if isinstance(v, dict):
+            return v
+        return v
 
 
 # Template Schemas
