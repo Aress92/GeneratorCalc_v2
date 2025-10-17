@@ -10,16 +10,6 @@ import { useState } from 'react';
 import { useAuth, withAuth } from '@/contexts/AuthContext';
 import { hasPermission } from '@/lib/auth';
 import { ImportAPI } from '@/lib/api-client';
-// TODO: Re-enable sonner after fixing pnpm installation
-// import { toast } from 'sonner';
-
-// Temporary toast fallback until sonner is installed
-const toast = {
-  success: (msg: string) => console.log('✅', msg),
-  error: (msg: string) => console.error('❌', msg),
-  warning: (msg: string) => console.warn('⚠️', msg),
-  info: (msg: string) => console.info('ℹ️', msg),
-};
 
 function ImportPage() {
   const { user } = useAuth();
@@ -73,13 +63,13 @@ function ImportPage() {
   const handleFileSelect = async (file: File) => {
     // Validate file type
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-      toast.error('Tylko pliki Excel (.xlsx, .xls) są obsługiwane');
+      alert('Tylko pliki Excel (.xlsx, .xls) są obsługiwane');
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('Plik jest zbyt duży. Maksymalny rozmiar to 10MB');
+      alert('Plik jest zbyt duży. Maksymalny rozmiar to 10MB');
       return;
     }
 
@@ -105,7 +95,7 @@ function ImportPage() {
       setCurrentStep(3);
     } catch (error) {
       console.error('Preview error:', error);
-      toast.error('Błąd podczas przetwarzania pliku');
+      alert('Błąd podczas przetwarzania pliku');
     } finally {
       setIsPreviewLoading(false);
     }
@@ -156,7 +146,7 @@ function ImportPage() {
       setCurrentStep(5);
     } catch (error) {
       console.error('Dry run error:', error);
-      toast.error('Błąd podczas testowego importu');
+      alert('Błąd podczas testowego importu');
     } finally {
       setIsDryRunLoading(false);
     }
@@ -175,13 +165,13 @@ function ImportPage() {
       };
 
       const result = await ImportAPI.createJob(selectedFile, jobData);
-      toast.success(`Import uruchomiony pomyślnie! Job ID: ${result.id}`);
+      alert(`Import uruchomiony pomyślnie! Job ID: ${result.id}`);
 
       // Redirect to job monitoring or dashboard
       window.location.href = '/dashboard';
     } catch (error) {
       console.error('Import error:', error);
-      toast.error('Błąd podczas uruchamiania importu');
+      alert('Błąd podczas uruchamiania importu');
     } finally {
       setIsImporting(false);
     }
@@ -206,7 +196,7 @@ function ImportPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to download template:', error);
-      toast.error('Nie udało się pobrać szablonu');
+      alert('Nie udało się pobrać szablonu');
     }
   };
 

@@ -35,7 +35,7 @@ services:
       - DEBUG=true
       - LOG_LEVEL=DEBUG
       - BACKEND_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000
-      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,backend
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
@@ -71,12 +71,6 @@ services:
     depends_on:
       - mysql
       - redis
-    healthcheck:
-      test: ["CMD", "python", "-c", "import redis; r = redis.Redis(host='redis', port=6379, db=1); r.ping()"]
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-      interval: 60s
 
   # Celery Beat (Scheduler)
   celery-beat:
@@ -100,12 +94,6 @@ services:
     depends_on:
       - mysql
       - redis
-    healthcheck:
-      test: ["CMD", "python", "-c", "import redis; r = redis.Redis(host='redis', port=6379, db=1); r.ping()"]
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-      interval: 60s
 
   # MySQL Database
   mysql:

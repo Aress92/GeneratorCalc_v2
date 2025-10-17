@@ -4,7 +4,7 @@ Regenerator configuration models.
 Modele konfiguracji regeneratorów.
 """
 
-from datetime import datetime, UTC
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 import uuid
@@ -77,8 +77,8 @@ class RegeneratorConfiguration(Base):
     is_template = Column(Boolean, default=False)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -113,8 +113,8 @@ class ConfigurationTemplate(Base):
     created_by_user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     created_by = relationship("User")
@@ -177,8 +177,8 @@ class Material(Base):
     created_by_user_id = Column(CHAR(36), ForeignKey("users.id"), nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     created_by = relationship("User", foreign_keys=[created_by_user_id])
@@ -217,8 +217,8 @@ class GeometryComponent(Base):
     is_visible = Column(Boolean, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     configuration = relationship("RegeneratorConfiguration")
@@ -251,8 +251,8 @@ class ConfigurationConstraint(Base):
     is_active = Column(Boolean, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class ConfigurationHistory(Base):
@@ -279,7 +279,7 @@ class ConfigurationHistory(Base):
     user_agent = Column(Text, nullable=True)
 
     # Timestamp
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
     configuration = relationship("RegeneratorConfiguration")

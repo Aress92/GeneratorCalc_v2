@@ -1,0 +1,22 @@
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -1,6 +1,6 @@
+ services:
+   frontend:
+     environment:
+-      - NEXT_PUBLIC_API_URL=http://backend:8000
++      - NEXT_PUBLIC_API_URL=${PUBLIC_BASE_URL}  # e.g., http://localhost or https://your.domain
+ 
+   backend:
+     environment:
+@@ -12,6 +12,7 @@
+       - DATABASE_URL=${DATABASE_URL}
+       - REDIS_URL=${REDIS_URL}
++      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+ 
+   celery:
+     environment:
+@@ -20,3 +21,4 @@
+       - DATABASE_URL=${DATABASE_URL}
+       - REDIS_URL=${REDIS_URL}
++      - CELERY_BROKER_URL=${CELERY_BROKER_URL}

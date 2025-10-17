@@ -4,12 +4,10 @@ Celery tasks for optimization operations.
 Zadania Celery dla operacji optymalizacji.
 """
 
-from datetime import datetime, timedelta, UTC
+from datetime import datetime
 from typing import Optional, Dict, Any
 import structlog
-from celery import Task
-import asyncio
-import nest_asyncio
+from celery import current_task
 
 from app.celery import celery_app
 from app.core.database import AsyncSessionLocal
@@ -19,44 +17,25 @@ from app.models.optimization import OptimizationStatus
 logger = structlog.get_logger(__name__)
 
 
-class AsyncCeleryTask(Task):
-    """Base class for async Celery tasks with proper event loop handling."""
+@celery_app.task(bind=True)
+def run_optimization_task(self, job_id: str) -> Dict[str, Any]:
+    """
+    Celery task to run optimization in background.
 
-    def __call__(self, *args, **kwargs):
-        # Apply nest_asyncio to allow nested event loops in Celery worker context
-        nest_asyncio.apply()
+    Args:
+        job_id: ID of the optimization job to run
 
-        # Create new event loop for this task
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(self.run_async(*args, **kwargs))
-        finally:
-            loop.close()
+    Returns:
+        Dictionary with optimization results
+    """
 
-    async def run_async(self, *args, **kwargs):
-        # This method should be overridden by subclasses
-        raise NotImplementedError("Subclasses must implement run_async")
+    logger.info("Starting optimization task", job_id=job_id, task_id=self.request.id)
 
+    try:
+        # Use async context manager for database session
+        import asyncio
 
-class RunOptimizationTask(AsyncCeleryTask):
-    """Celery task to run optimization in background."""
-
-    name = "app.tasks.optimization_tasks.run_optimization_task"
-
-    async def run_async(self, job_id: str) -> Dict[str, Any]:
-        """
-        Run optimization task asynchronously.
-
-        Args:
-            job_id: ID of the optimization job to run
-
-        Returns:
-            Dictionary with optimization results
-        """
-        logger.info("Starting optimization task", job_id=job_id, task_id=self.request.id)
-
-        try:
+        async def run_async_optimization():
             async with AsyncSessionLocal() as db:
                 # Update job with Celery task ID
                 from sqlalchemy import select
@@ -71,20 +50,17 @@ class RunOptimizationTask(AsyncCeleryTask):
 
                 job.celery_task_id = self.request.id
                 job.status = OptimizationStatus.RUNNING
-                job.started_at = datetime.now(UTC)
+                job.started_at = datetime.utcnow()
                 await db.commit()
 
                 # Create optimization service
                 optimization_service = OptimizationService(db)
 
                 # Progress callback for Celery
-                # NOTE: This is called from SLSQP optimizer (sync context), so we can't use await
-                # IMPORTANT: We ONLY update Celery state here, NOT the database!
-                # Database updates will happen after optimization completes to avoid event loop conflicts
                 def update_progress(current_iter: int, max_iter: int, objective_value: Optional[float] = None):
                     progress = min(100, (current_iter / max_iter) * 100)
 
-                    # Update Celery task state (this is sync-safe)
+                    # Update Celery task state
                     self.update_state(
                         state='PROGRESS',
                         meta={
@@ -95,13 +71,8 @@ class RunOptimizationTask(AsyncCeleryTask):
                         }
                     )
 
-                    logger.debug(
-                        "Progress update",
-                        iteration=current_iter,
-                        max_iterations=max_iter,
-                        progress=progress,
-                        objective_value=objective_value
-                    )
+                    # Update database job progress
+                    asyncio.create_task(update_job_progress(job_id, current_iter, progress, objective_value))
 
                 # Set progress callback in optimization service
                 optimization_service.progress_callback = update_progress
@@ -120,21 +91,22 @@ class RunOptimizationTask(AsyncCeleryTask):
                     'co2_reduction_percentage': result.co2_reduction_percentage if result else None
                 }
 
-        except Exception as e:
-            logger.error("Optimization task failed", job_id=job_id, error=str(e), exc_info=True)
+        # Run the async optimization
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(run_async_optimization())
+        finally:
+            loop.close()
 
-            # Update job status to failed (includes celery_task_id)
-            try:
-                await update_job_status_failed(job_id, str(e), self.request.id)
-            except Exception as update_error:
-                logger.error("Failed to update job status to failed", error=str(update_error))
+    except Exception as e:
+        logger.error("Optimization task failed", job_id=job_id, error=str(e), exc_info=True)
 
-            # Re-raise exception for Celery
-            raise
+        # Update job status to failed
+        asyncio.run(update_job_status_failed(job_id, str(e)))
 
-
-# Register task with Celery
-run_optimization_task = celery_app.register_task(RunOptimizationTask())
+        # Re-raise exception for Celery
+        raise
 
 
 async def update_job_progress(
@@ -161,11 +133,10 @@ async def update_job_progress(
 
                 # Estimate completion time
                 if job.started_at and progress_percentage > 0:
-                    now = datetime.now(UTC)
-                    elapsed = (now - job.started_at).total_seconds()
+                    elapsed = (datetime.utcnow() - job.started_at).total_seconds()
                     total_estimated = elapsed / (progress_percentage / 100)
                     remaining = total_estimated - elapsed
-                    job.estimated_completion_at = now + timedelta(seconds=remaining)
+                    job.estimated_completion_at = datetime.utcnow() + datetime.timedelta(seconds=remaining)
 
                 await db.commit()
 
@@ -173,7 +144,7 @@ async def update_job_progress(
         logger.warning("Failed to update job progress", job_id=job_id, error=str(e))
 
 
-async def update_job_status_failed(job_id: str, error_message: str, celery_task_id: Optional[str] = None):
+async def update_job_status_failed(job_id: str, error_message: str):
     """Update job status to failed."""
     try:
         async with AsyncSessionLocal() as db:
@@ -187,9 +158,7 @@ async def update_job_status_failed(job_id: str, error_message: str, celery_task_
             if job:
                 job.status = OptimizationStatus.FAILED
                 job.error_message = error_message
-                job.completed_at = datetime.now(UTC)
-                if celery_task_id and not job.celery_task_id:
-                    job.celery_task_id = celery_task_id
+                job.completed_at = datetime.utcnow()
                 if job.started_at:
                     job.runtime_seconds = (job.completed_at - job.started_at).total_seconds()
 
@@ -210,13 +179,16 @@ def cleanup_old_optimization_jobs() -> Dict[str, int]:
     logger.info("Starting optimization jobs cleanup")
 
     try:
+        import asyncio
+
         async def cleanup_async():
             async with AsyncSessionLocal() as db:
                 from sqlalchemy import select, delete
                 from app.models.optimization import OptimizationJob, OptimizationIteration
+                from datetime import datetime, timedelta
 
                 # Delete jobs older than 30 days that are completed/failed/cancelled
-                cutoff_date = datetime.now(UTC) - timedelta(days=30)
+                cutoff_date = datetime.utcnow() - timedelta(days=30)
 
                 # Get old jobs
                 stmt = select(OptimizationJob).where(
@@ -252,8 +224,6 @@ def cleanup_old_optimization_jobs() -> Dict[str, int]:
                     'iterations_deleted': iterations_deleted
                 }
 
-        # Run async code in new event loop
-        nest_asyncio.apply()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -281,6 +251,8 @@ def generate_optimization_report(result_id: str) -> Dict[str, Any]:
     logger.info("Generating optimization report", result_id=result_id)
 
     try:
+        import asyncio
+
         async def generate_async():
             async with AsyncSessionLocal() as db:
                 from sqlalchemy import select
@@ -300,14 +272,12 @@ def generate_optimization_report(result_id: str) -> Dict[str, Any]:
                     'result_id': result_id,
                     'pdf_path': f'/reports/optimization_{result_id}.pdf',
                     'excel_path': f'/reports/optimization_{result_id}.xlsx',
-                    'generated_at': datetime.now(UTC).isoformat()
+                    'generated_at': datetime.utcnow().isoformat()
                 }
 
                 logger.info("Optimization report generated", result_id=result_id)
                 return report_data
 
-        # Run async code in new event loop
-        nest_asyncio.apply()
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:

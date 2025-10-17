@@ -6,7 +6,7 @@ Serwis raportowania dla agregacji danych i generowania raportów.
 
 import asyncio
 import json
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 import uuid
 import io
@@ -104,10 +104,10 @@ class ReportingService:
             # Update report with results
             report.status = ReportStatus.COMPLETED
             report.progress_percentage = 100.0
-            report.generated_at = datetime.now(UTC)
+            report.generated_at = datetime.utcnow()
             report.file_path = str(file_path)
             report.file_size_bytes = file_path.stat().st_size if file_path.exists() else 0
-            report.expires_at = datetime.now(UTC) + timedelta(days=30)
+            report.expires_at = datetime.utcnow() + timedelta(days=30)
 
             await self.db.commit()
             await self.db.refresh(report)
@@ -259,8 +259,8 @@ class ReportingService:
         sections = []
 
         # Get system metrics
-        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.now(UTC) - timedelta(days=30)
-        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.now(UTC)
+        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.utcnow() - timedelta(days=30)
+        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.utcnow()
 
         stmt = select(SystemMetrics).where(
             SystemMetrics.measured_at.between(start_date, end_date)
@@ -292,8 +292,8 @@ class ReportingService:
         sections = []
 
         # Get user activity data
-        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.now(UTC) - timedelta(days=30)
-        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.now(UTC)
+        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.utcnow() - timedelta(days=30)
+        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.utcnow()
 
         # Count users, optimizations, imports
         users_stmt = select(func.count(User.id)).where(
@@ -329,8 +329,8 @@ class ReportingService:
         """Generate import analytics report."""
         sections = []
 
-        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.now(UTC) - timedelta(days=30)
-        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.now(UTC)
+        start_date = datetime.fromisoformat(report.date_range['start_date']) if report.date_range else datetime.utcnow() - timedelta(days=30)
+        end_date = datetime.fromisoformat(report.date_range['end_date']) if report.date_range else datetime.utcnow()
 
         # Get import jobs
         stmt = select(ImportJob).where(
@@ -376,7 +376,7 @@ class ReportingService:
     async def _create_report_file(self, report: Report, sections: List[Dict[str, Any]]) -> Path:
         """Create report file in specified format."""
 
-        file_name = f"report_{report.id}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+        file_name = f"report_{report.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
         if report.format == ReportFormat.PDF:
             return await self._create_pdf_report(report, sections, file_name)
@@ -417,7 +417,7 @@ class ReportingService:
         text_path = file_path.with_suffix('.txt')
         with open(text_path, 'w', encoding='utf-8') as f:
             f.write(f"Report: {report.title}\n")
-            f.write(f"Generated: {datetime.now(UTC).isoformat()}\n")
+            f.write(f"Generated: {datetime.utcnow().isoformat()}\n")
             f.write(f"Type: {report.report_type}\n\n")
 
             if report.description:
@@ -460,7 +460,7 @@ class ReportingService:
                 # Summary sheet
                 summary_data = {
                     "Report Title": [report.title],
-                    "Generated": [datetime.now(UTC).isoformat()],
+                    "Generated": [datetime.utcnow().isoformat()],
                     "Type": [report.report_type],
                     "Status": [report.status],
                     "Description": [report.description or ""]
@@ -518,7 +518,7 @@ class ReportingService:
                 "id": report.id,
                 "title": report.title,
                 "type": report.report_type,
-                "generated_at": datetime.now(UTC).isoformat(),
+                "generated_at": datetime.utcnow().isoformat(),
                 "format": report.format
             },
             "sections": sections
@@ -531,84 +531,41 @@ class ReportingService:
 
     async def get_dashboard_metrics(self, user_id: str) -> DashboardMetrics:
         """Get dashboard metrics for user."""
-        from dateutil.relativedelta import relativedelta
 
         # Total optimizations
         opt_count_stmt = select(func.count(OptimizationJob.id)).where(
             OptimizationJob.user_id == user_id
         )
-        total_optimizations = (await self.db.execute(opt_count_stmt)).scalar() or 0
+        total_optimizations = (await self.db.execute(opt_count_stmt)).scalar()
 
         # Active users (last 30 days)
-        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         active_users_stmt = select(func.count(func.distinct(OptimizationJob.user_id))).where(
-            OptimizationJob.created_at >= thirty_days_ago
+            OptimizationJob.created_at >= datetime.utcnow() - timedelta(days=30)
         )
-        active_users = (await self.db.execute(active_users_stmt)).scalar() or 0
+        active_users = (await self.db.execute(active_users_stmt)).scalar()
 
-        # Fuel savings average
+        # Fuel savings total
         fuel_savings_stmt = select(func.avg(OptimizationResult.fuel_savings_percentage)).join(
             OptimizationJob
         ).where(OptimizationJob.user_id == user_id)
-        fuel_savings_total = (await self.db.execute(fuel_savings_stmt)).scalar() or 0.0
-
-        # CO2 reduction total (sum of all reductions)
-        co2_stmt = select(func.sum(OptimizationResult.co2_reduction_percentage)).join(
-            OptimizationJob
-        ).where(OptimizationJob.user_id == user_id)
-        co2_reduction_total = (await self.db.execute(co2_stmt)).scalar() or 0.0
+        fuel_savings_total = (await self.db.execute(fuel_savings_stmt)).scalar() or 0
 
         # Success rate
         completed_count_stmt = select(func.count(OptimizationJob.id)).where(
             and_(OptimizationJob.user_id == user_id, OptimizationJob.status == 'completed')
         )
-        completed_optimizations = (await self.db.execute(completed_count_stmt)).scalar() or 0
-        success_rate = (completed_optimizations / total_optimizations * 100) if total_optimizations > 0 else 0.0
-
-        # Optimizations this month
-        now = datetime.now(UTC)
-        first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        month_count_stmt = select(func.count(OptimizationJob.id)).where(
-            and_(
-                OptimizationJob.user_id == user_id,
-                OptimizationJob.created_at >= first_day_of_month
-            )
-        )
-        optimizations_this_month = (await self.db.execute(month_count_stmt)).scalar() or 0
-
-        # System uptime (based on oldest job)
-        oldest_job_stmt = select(func.min(OptimizationJob.created_at))
-        oldest_job_date = (await self.db.execute(oldest_job_stmt)).scalar()
-        if oldest_job_date:
-            # Convert offset-naive date from DB to UTC
-            if oldest_job_date.tzinfo is None:
-                oldest_job_date = oldest_job_date.replace(tzinfo=UTC)
-            days_running = (datetime.now(UTC) - oldest_job_date).days
-            system_uptime = 99.5 if days_running > 0 else 100.0  # Assume high uptime
-        else:
-            system_uptime = 100.0
-
-        # API response time average (calculate from completed jobs runtime)
-        avg_runtime_stmt = select(func.avg(OptimizationJob.runtime_seconds)).where(
-            and_(
-                OptimizationJob.user_id == user_id,
-                OptimizationJob.status == 'completed',
-                OptimizationJob.runtime_seconds.isnot(None)
-            )
-        )
-        avg_runtime = (await self.db.execute(avg_runtime_stmt)).scalar()
-        # Convert to ms and use as proxy for system performance
-        api_response_time_avg = int(avg_runtime * 10) if avg_runtime else 150
+        completed_optimizations = (await self.db.execute(completed_count_stmt)).scalar()
+        success_rate = (completed_optimizations / total_optimizations * 100) if total_optimizations > 0 else 0
 
         return DashboardMetrics(
             total_optimizations=total_optimizations,
             active_users=active_users,
-            fuel_savings_total=float(fuel_savings_total),
-            co2_reduction_total=float(co2_reduction_total),
-            system_uptime=float(system_uptime),
-            api_response_time_avg=api_response_time_avg,
-            optimizations_this_month=optimizations_this_month,
-            success_rate=float(success_rate)
+            fuel_savings_total=fuel_savings_total,
+            co2_reduction_total=0,  # Placeholder
+            system_uptime=99.5,  # Placeholder
+            api_response_time_avg=150,  # Placeholder
+            optimizations_this_month=0,  # Placeholder
+            success_rate=success_rate
         )
 
     async def get_report_progress(self, report_id: str) -> ReportProgress:

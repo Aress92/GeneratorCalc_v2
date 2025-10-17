@@ -5,7 +5,7 @@ Serwis uwierzytelniania z obsługą JWT i zarządzaniem sesją.
 """
 
 import secrets
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
@@ -130,7 +130,7 @@ class AuthService:
         await self.db.execute(
             update(User)
             .where(User.id == user.id)
-            .values(last_login=datetime.now(UTC))
+            .values(last_login=datetime.utcnow())
         )
         await self.db.commit()
 
@@ -294,7 +294,7 @@ class AuthService:
             await self.db.execute(
                 update(User)
                 .where(User.id == user_id)
-                .values(**update_data, updated_at=datetime.now(UTC))
+                .values(**update_data, updated_at=datetime.utcnow())
             )
             await self.db.commit()
             await self.db.refresh(user)
@@ -348,7 +348,7 @@ class AuthService:
             .where(User.id == user_id)
             .values(
                 password_hash=password_hash,
-                updated_at=datetime.now(UTC)
+                updated_at=datetime.utcnow()
             )
         )
         await self.db.commit()
@@ -372,7 +372,7 @@ class AuthService:
 
         # Generate reset token
         reset_token = generate_reset_token()
-        expires_at = datetime.now(UTC) + timedelta(hours=1)  # 1 hour expiry
+        expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
 
         await self.db.execute(
             update(User)
@@ -380,7 +380,7 @@ class AuthService:
             .values(
                 reset_token=reset_token,
                 reset_token_expires=expires_at,
-                updated_at=datetime.now(UTC)
+                updated_at=datetime.utcnow()
             )
         )
         await self.db.commit()
@@ -443,7 +443,7 @@ class AuthService:
                 password_hash=password_hash,
                 reset_token=None,
                 reset_token_expires=None,
-                updated_at=datetime.now(UTC)
+                updated_at=datetime.utcnow()
             )
         )
         await self.db.commit()
@@ -485,14 +485,14 @@ class AuthService:
         viewer_users = viewer_result.scalar()
 
         # Recent registrations (last 30 days)
-        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         recent_reg_result = await self.db.execute(
             select(func.count(User.id)).where(User.created_at >= thirty_days_ago)
         )
         recent_registrations = recent_reg_result.scalar()
 
         # Recent logins (last 24 hours)
-        twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
+        twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
         recent_login_result = await self.db.execute(
             select(func.count(User.id)).where(User.last_login >= twenty_four_hours_ago)
         )

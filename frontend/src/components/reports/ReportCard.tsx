@@ -2,11 +2,24 @@
 
 import { useState } from 'react'
 
-import type { Report } from '@/types/api'
+interface Report {
+  id: string
+  title: string
+  description?: string
+  report_type: string
+  status: 'pending' | 'generating' | 'completed' | 'failed'
+  format: string
+  progress_percentage: number
+  generated_at?: string
+  file_size_bytes?: number
+  download_url?: string
+  created_at: string
+  updated_at: string
+}
 
 interface ReportCardProps {
   report: Report
-  onDelete?: ((reportId: string) => Promise<void> | void) | undefined
+  onDelete?: (reportId: string) => void
 }
 
 export function ReportCard({ report, onDelete }: ReportCardProps) {

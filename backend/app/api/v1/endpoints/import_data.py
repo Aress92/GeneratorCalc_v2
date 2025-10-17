@@ -215,9 +215,9 @@ async def dry_run_import_simple(
 
 @router.post("/jobs", response_model=ImportJobResponse)
 async def create_import_job(
+    job_data: ImportJobCreate,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    job_data: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -226,15 +226,6 @@ async def create_import_job(
 
     Uploads file and creates an import job that will be processed in the background.
     """
-    import json
-
-    # Parse job data from form
-    try:
-        job_data_dict = json.loads(job_data)
-        job_data_obj = ImportJobCreate(**job_data_dict)
-    except (json.JSONDecodeError, ValueError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid job data format: {str(e)}")
-
     # Validate file type
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(status_code=400, detail="Only Excel files (.xlsx, .xls) are supported")
@@ -259,7 +250,7 @@ async def create_import_job(
         job = await import_service.create_import_job(
             current_user.id,
             str(temp_file),
-            job_data_obj
+            job_data
         )
 
         # Schedule background processing

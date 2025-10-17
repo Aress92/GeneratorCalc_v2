@@ -1,0 +1,23 @@
+--- a/PRD.md
++++ b/PRD.md
+@@ -2,6 +2,12 @@
+ Metadane dokumentu
+ 
+ Streszczenie wykonawcze
++
++### Luki znane (przed UAT)
++- Pokrycie testami: 45% (cel 80%) – skoncentrować się na warstwie services oraz testach SSE.
++- ORM/Relacje: dodać `template_id` w `Report` i odblokować relację `ReportTemplate.generated_reports` + migracja.
++- SSE przez Nginx: wyłączyć buforowanie (`proxy_buffering off`) i cache (`proxy_cache off`) dla ścieżek `/api/v1/jobs/*/events`.
++
+ 
+ Wizja i cele biznesowe
+@@ -41,7 +47,7 @@
+ Tytuł	Product Requirements Document - Forglass Regenerator Optimizer
+ Wersja	1.0.0
+ Data	2025-09-23
+-Status	Draft - Ready for Review
++Status	MVP ukończone – oczekuje na UAT
+ Właściciel	Product Owner / Senior Full-Stack Architect
+ Stakeholders	Forglass Engineering Team, Plant Operations, IT Department
+ Zatwierdzenie	Pending CTO approval

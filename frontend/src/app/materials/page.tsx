@@ -3,17 +3,6 @@
 import { useState, useEffect } from 'react'
 import { MaterialsAPI } from '@/lib/api-client'
 import { withAuth } from '@/contexts/AuthContext'
-// TODO: Re-enable sonner after fixing pnpm installation
-// import { toast } from 'sonner'
-
-// Temporary toast fallback until sonner is installed
-const toast = {
-  success: (msg: string) => console.log('✅', msg),
-  error: (msg: string) => console.error('❌', msg),
-  warning: (msg: string) => console.warn('⚠️', msg),
-  info: (msg: string) => console.info('ℹ️', msg),
-};
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -75,7 +64,8 @@ function MaterialsPage() {
   })
 
   const materialTypes = [
-    'refractory', 'insulation', 'checker', 'structural', 'sealing', 'other'
+    'refractory', 'insulation', 'checker', 'metal', 'cement',
+    'coating', 'anchor', 'rope', 'seal', 'repair'
   ]
 
   useEffect(() => {
@@ -85,23 +75,14 @@ function MaterialsPage() {
   const loadMaterials = async () => {
     try {
       setLoading(true)
+      const response = await MaterialsAPI.getMaterials({
+        limit: 200,
+        offset: 0,
+        is_active: true
+      })
 
-      // Load materials in two batches to get all 105 materials
-      const [batch1, batch2] = await Promise.all([
-        MaterialsAPI.getMaterials({
-          limit: 100,
-          offset: 0
-        }),
-        MaterialsAPI.getMaterials({
-          limit: 100,
-          offset: 100
-        })
-      ])
-
-      const materialsData1 = Array.isArray(batch1) ? batch1 : (batch1 as any)?.materials || []
-      const materialsData2 = Array.isArray(batch2) ? batch2 : (batch2 as any)?.materials || []
-
-      setMaterials([...materialsData1, ...materialsData2])
+      const materialsData = Array.isArray(response) ? response : (response as any)?.materials || []
+      setMaterials(materialsData)
     } catch (error) {
       console.error('Failed to load materials:', error)
     } finally {
@@ -127,10 +108,8 @@ function MaterialsPage() {
         }
       })
       await loadMaterials()
-      toast.success('Materiał został utworzony pomyślnie')
     } catch (error) {
       console.error('Failed to create material:', error)
-      toast.error(`Nie udało się utworzyć materiału: ${error instanceof Error ? error.message : 'Nieznany błąd'}`)
     }
   }
 

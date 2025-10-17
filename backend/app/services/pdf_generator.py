@@ -5,7 +5,7 @@ Serwis generowania raportów PDF.
 """
 
 import io
-from datetime import datetime, UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
 import json
@@ -148,7 +148,7 @@ class PDFGenerator:
             story.append(Spacer(1, 0.3*inch))
 
         # Generation info
-        generated_at = datetime.now(UTC).strftime('%B %d, %Y at %I:%M %p UTC')
+        generated_at = datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')
         info_data = [
             ['Generated:', generated_at],
             ['Report ID:', report_data.get('id', 'N/A')],
@@ -347,7 +347,7 @@ class PDFGenerator:
 
         footer_text = f"""
         This report was generated automatically by the Forglass Regenerator Optimizer (FRO) system.
-        Generated on {datetime.now(UTC).strftime('%B %d, %Y at %I:%M %p UTC')}.
+        Generated on {datetime.utcnow().strftime('%B %d, %Y at %I:%M %p UTC')}.
 
         For questions or support, please contact your system administrator.
         """
@@ -378,7 +378,7 @@ class SimplePDFGenerator:
             f.write("=" * 50 + "\n\n")
 
             f.write(f"Report Type: {report_data.get('report_type', 'N/A')}\n")
-            f.write(f"Generated: {datetime.now(UTC).isoformat()}\n")
+            f.write(f"Generated: {datetime.utcnow().isoformat()}\n")
             f.write(f"Format: {report_data.get('format', 'PDF')}\n\n")
 
             for i, section in enumerate(sections, 1):

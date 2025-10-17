@@ -4,7 +4,7 @@ Import job models for data validation and processing.
 Modele zadań importu danych z walidacją i przetwarzaniem.
 """
 
-from datetime import datetime, UTC
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 import uuid
@@ -64,7 +64,7 @@ class ImportJob(Base):
     processing_options = Column(JSON, default=dict)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
@@ -125,8 +125,8 @@ class ImportedRegenerator(Base):
     raw_data = Column(JSON, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     import_job = relationship("ImportJob", back_populates="imported_regenerators")
@@ -152,8 +152,8 @@ class ValidationRule(Base):
     is_active = Column(Boolean, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class UnitConversion(Base):
@@ -177,5 +177,5 @@ class UnitConversion(Base):
     is_active = Column(Boolean, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

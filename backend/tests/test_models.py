@@ -5,7 +5,7 @@ Testy modeli bazy danych.
 """
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime
 from uuid import uuid4
 
 from app.models.user import User, UserRole
@@ -75,7 +75,7 @@ class TestUserModel:
     @pytest.mark.asyncio
     async def test_user_timestamps(self, test_db):
         """Test user timestamp fields."""
-        creation_time = datetime.now(UTC)
+        creation_time = datetime.utcnow()
 
         user = User(
             username="timetest",
@@ -91,12 +91,8 @@ class TestUserModel:
         assert user.created_at is not None
         assert user.updated_at is not None
         # Allow for small timing differences (microseconds precision)
-        # Convert to naive datetime for comparison since SQLite doesn't store timezone info
-        user_created_naive = user.created_at.replace(tzinfo=None) if user.created_at.tzinfo else user.created_at
-        user_updated_naive = user.updated_at.replace(tzinfo=None) if user.updated_at.tzinfo else user.updated_at
-        creation_time_naive = creation_time.replace(tzinfo=None)
-        assert (user_created_naive - creation_time_naive).total_seconds() >= -1
-        assert (user_updated_naive - creation_time_naive).total_seconds() >= -1
+        assert (user.created_at - creation_time).total_seconds() >= -1
+        assert (user.updated_at - creation_time).total_seconds() >= -1
 
 
 class TestImportJobModel:

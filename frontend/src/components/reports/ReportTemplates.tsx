@@ -2,7 +2,22 @@
 
 import { useState, useEffect } from 'react'
 import { ReportsAPI } from '@/lib/api-client'
-import type { TemplatesResponse, ReportTemplate } from '@/types/api'
+
+interface ReportTemplate {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  template_config: any
+  default_filters?: any
+  usage_count: number
+  rating_average?: number
+  rating_count: number
+  is_public: boolean
+  is_system: boolean
+  version: string
+  created_at: string
+}
 
 interface ReportTemplatesProps {
   onUseTemplate: (template: ReportTemplate) => void
@@ -85,7 +100,7 @@ export function ReportTemplates({ onUseTemplate }: ReportTemplatesProps) {
 
   const loadTemplates = async () => {
     try {
-      const data = await ReportsAPI.getTemplates({ limit: 100 }) as TemplatesResponse
+      const data = await ReportsAPI.getTemplates({ limit: 100 })
       setTemplates(data.templates || [])
     } catch (error) {
       console.error('Error loading templates:', error)

@@ -7,7 +7,7 @@ Serwis importu obsługujący operacje importu danych.
 import os
 import pandas as pd
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import structlog
@@ -174,7 +174,7 @@ class ImportService:
 
             # Update status to processing
             job.status = ImportStatus.PROCESSING
-            job.started_at = datetime.now(UTC)
+            job.started_at = datetime.utcnow()
             await self.db.commit()
 
             # Read and process file
@@ -194,7 +194,7 @@ class ImportService:
 
             # Update job status
             job.status = ImportStatus.COMPLETED
-            job.completed_at = datetime.now(UTC)
+            job.completed_at = datetime.utcnow()
             await self.db.commit()
 
             logger.info("Import job completed", job_id=job_id)
@@ -207,7 +207,7 @@ class ImportService:
             if 'job' in locals():
                 job.status = ImportStatus.FAILED
                 job.error_message = str(e)
-                job.completed_at = datetime.now(UTC)
+                job.completed_at = datetime.utcnow()
                 await self.db.commit()
 
             raise

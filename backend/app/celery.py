@@ -15,9 +15,9 @@ celery_app = Celery(
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
     include=[
-        "app.tasks.optimization_tasks",  # Fixed: was "optimization" (old placeholder)
-        "app.tasks.reporting_tasks",
+        "app.tasks.optimization",
         "app.tasks.import_export",
+        "app.tasks.reports",
         "app.tasks.maintenance",
     ],
 )

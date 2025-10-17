@@ -6,7 +6,7 @@ Schematy Pydantic dla systemu konfiguracji regeneratorów.
 
 from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.regenerator import RegeneratorType, ConfigurationStatus
 
@@ -148,79 +148,53 @@ class GeometryComponentResponse(BaseModel, TimestampMixin):
 # Configuration schemas
 class GeometryConfig(BaseModel):
     """Geometry configuration step."""
-    length: Optional[float] = Field(None, gt=0, description="Length in meters")
-    width: Optional[float] = Field(None, gt=0, description="Width in meters")
-    height: Optional[float] = Field(None, gt=0, description="Height in meters")
-    wall_thickness: Optional[float] = Field(None, gt=0, description="Wall thickness in meters")
-    checker_height: Optional[float] = Field(None, gt=0, description="Checker pack height in meters")
-    checker_pattern: Optional[str] = Field(None, description="Checker arrangement pattern")
-    flue_width: Optional[float] = Field(None, gt=0, description="Flue width in meters")
-    wall_width: Optional[float] = Field(None, gt=0, description="Wall width in meters")
-
-    # Additional fields that might be in existing data
-    inlet_area: Optional[float] = Field(None, description="Inlet area in m²")
-    outlet_area: Optional[float] = Field(None, description="Outlet area in m²")
+    length: float = Field(..., gt=0, description="Length in meters")
+    width: float = Field(..., gt=0, description="Width in meters")
+    height: float = Field(..., gt=0, description="Height in meters")
+    wall_thickness: float = Field(..., gt=0, description="Wall thickness in meters")
+    checker_height: float = Field(..., gt=0, description="Checker pack height in meters")
+    checker_pattern: str = Field(..., description="Checker arrangement pattern")
+    flue_width: float = Field(..., gt=0, description="Flue width in meters")
+    wall_width: float = Field(..., gt=0, description="Wall width in meters")
 
 
 class ThermalConfig(BaseModel):
     """Thermal configuration step."""
-    design_temperature: Optional[float] = Field(None, description="Design temperature in °C")
-    max_temperature: Optional[float] = Field(None, description="Maximum temperature in °C")
-    operating_temperature: Optional[float] = Field(None, description="Normal operating temperature in °C")
+    design_temperature: float = Field(..., description="Design temperature in °C")
+    max_temperature: float = Field(..., description="Maximum temperature in °C")
+    operating_temperature: float = Field(..., description="Normal operating temperature in °C")
     temperature_gradient: Optional[float] = Field(None, description="Temperature gradient in °C/m")
     thermal_cycling: bool = Field(False, description="Subject to thermal cycling")
     heating_rate: Optional[float] = Field(None, description="Heating rate in °C/min")
     cooling_rate: Optional[float] = Field(None, description="Cooling rate in °C/min")
 
-    # Additional fields from existing data
-    ambient_temp: Optional[float] = Field(None, description="Ambient temperature in °C")
-    gas_temp_inlet: Optional[float] = Field(None, description="Gas inlet temperature in °C")
-    gas_temp_outlet: Optional[float] = Field(None, description="Gas outlet temperature in °C")
-    target_efficiency: Optional[float] = Field(None, description="Target thermal efficiency")
-
 
 class FlowConfig(BaseModel):
     """Flow configuration step."""
-    air_flow_rate: Optional[float] = Field(None, gt=0, description="Air flow rate in m³/h")
-    gas_flow_rate: Optional[float] = Field(None, gt=0, description="Gas flow rate in m³/h")
-    working_pressure: Optional[float] = Field(None, description="Working pressure in Pa")
-    max_pressure_drop: Optional[float] = Field(None, gt=0, description="Maximum pressure drop in Pa")
-    flow_direction: Optional[str] = Field(None, description="up-flow, down-flow, cross-flow")
-
-    # Additional fields from existing data
-    cycle_time: Optional[float] = Field(None, description="Cycle time in seconds")
-    mass_flow_rate: Optional[float] = Field(None, description="Mass flow rate in kg/s")
-    pressure_inlet: Optional[float] = Field(None, description="Inlet pressure in Pa")
-    pressure_outlet: Optional[float] = Field(None, description="Outlet pressure in Pa")
+    air_flow_rate: float = Field(..., gt=0, description="Air flow rate in m³/h")
+    gas_flow_rate: float = Field(..., gt=0, description="Gas flow rate in m³/h")
+    working_pressure: float = Field(..., description="Working pressure in Pa")
+    max_pressure_drop: float = Field(..., gt=0, description="Maximum pressure drop in Pa")
+    flow_direction: str = Field(..., description="up-flow, down-flow, cross-flow")
     flow_distribution: Optional[str] = Field(None, description="uniform, parabolic, custom")
 
 
 class MaterialsConfig(BaseModel):
     """Materials configuration step."""
-    checker_material_id: Optional[str] = Field(None, description="Checker material ID")
+    checker_material_id: str = Field(..., description="Checker material ID")
     insulation_material_id: Optional[str] = None
     refractory_material_id: Optional[str] = None
     structural_material_id: Optional[str] = None
     sealing_material_id: Optional[str] = None
     material_assignments: Dict[str, str] = Field(default_factory=dict, description="Component to material mapping")
 
-    # Additional fields from existing data
-    density: Optional[float] = Field(None, description="Material density")
-    specific_heat: Optional[float] = Field(None, description="Specific heat")
-    thermal_conductivity: Optional[float] = Field(None, description="Thermal conductivity")
-    wall_material: Optional[str] = Field(None, description="Wall material name")
-    checker_material: Optional[str] = Field(None, description="Checker material name")
-
 
 class ConstraintsConfig(BaseModel):
     """Constraints configuration step."""
     max_thermal_stress: Optional[float] = Field(None, description="Maximum thermal stress in MPa")
-    max_pressure_drop: Optional[float] = Field(None, gt=0, description="Maximum allowable pressure drop in Pa")
-    min_efficiency: Optional[float] = Field(None, ge=0, le=100, description="Minimum thermal efficiency %")
-    safety_factor: Optional[float] = Field(2.0, gt=1.0, description="Safety factor")
-
-    # Additional fields from existing data (may have different structure)
-    min_heat_transfer_coefficient: Optional[float] = Field(None, description="Minimum heat transfer coefficient")
+    max_pressure_drop: float = Field(..., gt=0, description="Maximum allowable pressure drop in Pa")
+    min_efficiency: float = Field(..., ge=0, le=100, description="Minimum thermal efficiency %")
+    safety_factor: float = Field(2.0, gt=1.0, description="Safety factor")
     code_compliance: List[str] = Field(default_factory=list, description="Applicable codes and standards")
     environmental_limits: Dict[str, float] = Field(default_factory=dict)
 
@@ -271,8 +245,6 @@ class RegeneratorConfigurationUpdate(BaseModel):
 
 class RegeneratorConfigurationResponse(BaseModel, TimestampMixin):
     """Regenerator configuration response."""
-    model_config = ConfigDict(from_attributes=True)
-
     id: str
     user_id: str
     name: str

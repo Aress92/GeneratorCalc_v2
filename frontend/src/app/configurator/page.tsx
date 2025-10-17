@@ -10,16 +10,6 @@ import { useState, useEffect } from 'react';
 import { useAuth, withAuth } from '@/contexts/AuthContext';
 import { hasPermission } from '@/lib/auth';
 import { MaterialsAPI, RegeneratorsAPI } from '@/lib/api-client';
-// TODO: Re-enable sonner after fixing pnpm installation
-// import { toast } from 'sonner';
-
-// Temporary toast fallback until sonner is installed
-const toast = {
-  success: (msg: string) => console.log('✅', msg),
-  error: (msg: string) => console.error('❌', msg),
-  warning: (msg: string) => console.warn('⚠️', msg),
-  info: (msg: string) => console.info('ℹ️', msg),
-};
 
 interface ConfigurationData {
   name: string;
@@ -177,57 +167,26 @@ function ConfiguratorPage() {
 
     setIsLoading(true);
     try {
-      // Map frontend data structure to backend API format
-      const payload = {
-        name: configData.name,
-        description: configData.description,
-        regenerator_type: configData.regenerator_type,
-        configuration_version: '1.0',
-        geometry_config: {
-          length: configData.geometry.length,
-          width: configData.geometry.width,
-          height: configData.geometry.height,
-          checker_height: configData.geometry.checker_height,
-          wall_thickness: 0.4, // Default
+      const response = await fetch('/api/v1/regenerators/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        materials_config: {
-          checker_material_id: configData.materials.checker_material_id,
-          wall_material_id: configData.materials.wall_material_id,
-        },
-        thermal_config: {
-          gas_temp_inlet: configData.operating_conditions.gas_inlet_temp,
-          gas_temp_outlet: 600, // Default
-          air_temp_inlet: configData.operating_conditions.air_inlet_temp,
-          air_temp_outlet: 1200, // Default
-          max_operating_temp: configData.thermal_properties.max_operating_temp,
-          target_efficiency: configData.thermal_properties.target_efficiency,
-        },
-        flow_config: {
-          mass_flow_rate: 50, // Default
-          air_flow_rate: configData.operating_conditions.air_flow_rate,
-          gas_flow_rate: configData.operating_conditions.gas_flow_rate,
-          cycle_time: 1200, // Default 20 min
-          design_pressure: configData.operating_conditions.design_pressure,
-          pressure_drop_limit: configData.thermal_properties.pressure_drop_limit,
-        },
-        constraints_config: {},
-        visualization_config: {},
-        status: 'completed',
-      };
+        credentials: 'include',
+        body: JSON.stringify(configData),
+      });
 
-      const response = await RegeneratorsAPI.createConfiguration(payload);
-
-      toast.success('Konfiguracja została zapisana pomyślnie!');
-
-      // Show success message with config ID
-      setTimeout(() => {
-        window.location.href = '/configurator?success=true';
-      }, 1500);
-
-    } catch (error: any) {
+      if (response.ok) {
+        alert('Konfiguracja została zapisana pomyślnie!');
+        // Redirect to regenerators list or dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const error = await response.json();
+        alert(`Błąd podczas zapisywania: ${error.detail}`);
+      }
+    } catch (error) {
       console.error('Save error:', error);
-      const errorMessage = error.message || 'Wystąpił błąd podczas zapisywania konfiguracji';
-      toast.error(errorMessage);
+      alert('Wystąpił błąd podczas zapisywania konfiguracji');
     } finally {
       setIsLoading(false);
     }
@@ -268,23 +227,6 @@ function ConfiguratorPage() {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {/* Help Banner */}
-        <div className="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-blue-700">
-                <strong>Kreator konfiguracji bazowej regeneratora</strong> - wypełnij wszystkie pola aby utworzyć nową konfigurację.
-                Konfiguracja będzie dostępna jako bazowa do tworzenia scenariuszy optymalizacji w Module Optymalizacji.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center">

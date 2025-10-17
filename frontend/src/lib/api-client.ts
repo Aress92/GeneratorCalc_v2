@@ -34,17 +34,8 @@ export class ApiClient {
     const response = await fetch(url, config);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-
-      // For validation errors (422), include the full error structure
-      if (response.status === 422 && errorData.errors) {
-        const error: any = new Error(errorData.detail || 'Validation error');
-        error.validationErrors = errorData.errors;
-        error.status = 422;
-        throw error;
-      }
-
-      throw new Error(errorData.detail || `API request failed: ${response.status}`);
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `API request failed: ${response.status}`);
     }
 
     return await response.json();
@@ -54,17 +45,7 @@ export class ApiClient {
    * GET request
    */
   static async get<T>(endpoint: string, params?: Record<string, any>): Promise<T> {
-    let searchParams = '';
-    if (params) {
-      // Properly handle boolean values for URLSearchParams
-      const processedParams: Record<string, string> = {};
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          processedParams[key] = String(value);
-        }
-      });
-      searchParams = new URLSearchParams(processedParams).toString();
-    }
+    const searchParams = params ? new URLSearchParams(params).toString() : '';
     const url = searchParams ? `${endpoint}?${searchParams}` : endpoint;
 
     return this.request<T>(url, { method: 'GET' });
@@ -237,35 +218,6 @@ export class OptimizationAPI {
   }
 
   /**
-   * Get detailed calculation preview for a scenario
-   * Pobierz szczegółowy podgląd obliczeń dla scenariusza
-   */
-  static async getScenarioCalculationPreview(scenarioId: string) {
-    return ApiClient.get(`/optimize/scenarios/${scenarioId}/calculation-preview`);
-  }
-
-  /**
-   * Update optimization scenario
-   */
-  static async updateScenario(scenarioId: string, scenarioData: any) {
-    return ApiClient.put(`/optimize/scenarios/${scenarioId}`, scenarioData);
-  }
-
-  /**
-   * Delete optimization scenario
-   */
-  static async deleteScenario(scenarioId: string) {
-    return ApiClient.delete(`/optimize/scenarios/${scenarioId}`);
-  }
-
-  /**
-   * Bulk delete optimization scenarios
-   */
-  static async bulkDeleteScenarios(scenarioIds: string[]) {
-    return ApiClient.post('/optimize/scenarios/bulk-delete', scenarioIds);
-  }
-
-  /**
    * Create optimization job
    */
   static async createJob(scenarioId: string, jobData?: any) {
@@ -294,45 +246,10 @@ export class OptimizationAPI {
   }
 
   /**
-   * Get optimization results for a specific job
+   * Get optimization results
    */
-  static async getJobResults(jobId: string) {
-    return ApiClient.get(`/optimize/jobs/${jobId}/results`);
-  }
-
-  /**
-   * Get optimization job progress
-   */
-  static async getJobProgress(jobId: string) {
-    return ApiClient.get(`/optimize/jobs/${jobId}/progress`);
-  }
-
-  /**
-   * Get optimization iterations for a job
-   */
-  static async getJobIterations(jobId: string, params?: { skip?: number; limit?: number }) {
-    return ApiClient.get(`/optimize/jobs/${jobId}/iterations`, params);
-  }
-
-  /**
-   * Get optimization job status
-   */
-  static async getJobStatus(jobId: string) {
-    return ApiClient.get(`/optimize/jobs/${jobId}/status`);
-  }
-
-  /**
-   * Cancel optimization job by ID
-   */
-  static async cancelJobById(jobId: string) {
-    return ApiClient.post(`/optimize/jobs/${jobId}/cancel`);
-  }
-
-  /**
-   * Bulk delete optimization jobs
-   */
-  static async bulkDeleteJobs(jobIds: string[]) {
-    return ApiClient.post('/optimize/jobs/bulk-delete', jobIds);
+  static async getResults(scenarioId: string, params?: { skip?: number; limit?: number }) {
+    return ApiClient.get(`/optimize/scenarios/${scenarioId}/results`, params);
   }
 }
 
