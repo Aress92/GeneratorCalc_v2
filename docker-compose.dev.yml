@@ -1,0 +1,30 @@
+# Docker Compose override for local development
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      dockerfile: Dockerfile.dev   # Use development Dockerfile
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"   # Expose for direct access during development
+
+  backend:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    ports:
+      - "8000:8000"   # Expose for direct access during development
+
+  # Disable nginx in development (direct access to services)
+  nginx:
+    profiles:
+      - disabled

@@ -1,4 +1,3 @@
-@"
 # OS
 Thumbs.db
 .DS_Store
@@ -11,6 +10,7 @@ npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 coverage/
+.turbo/
 
 # Python/FastAPI
 __pycache__/
@@ -20,25 +20,57 @@ __pycache__/
 .venv/
 dist/
 build/
+*.egg-info/
+.tox/
+.ruff_cache/
 
-# Env / secrets
+# Environment variables / secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
 
-# Logs / uploads
+# Logs / uploads / data
 logs/
 *.log
 uploads/
+*.sql
+backup_*.sql
 
-# VSCode
+# IDE
 .vscode/
 .history/
+.idea/
+*.swp
+*.swo
+*~
 
 # Docker
 *.pid
 docker-compose.override.yml
 
+# Production deployment specific
+# Keep docker-compose.dev.yml in version control
+# Keep deploy.sh in version control
+
+# Database
+mysql_data/
+redis_data/
+prometheus_data/
+grafana_data/
+
+# Testing
+test-results/
+playwright-report/
+playwright/.cache
+htmlcov/
+.coverage
+
 # Misc
 *.rej
-"@ | Set-Content -Encoding UTF8 .gitignore
+.pytest_cache/
+.mypy_cache/
+celerybeat-schedule
+celerybeat.pid

@@ -3,16 +3,16 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile   # Production-ready multi-stage Dockerfile
-    # NIE wystawiamy portu 3000 na hosta
+      dockerfile: Dockerfile.dev
+    # ports:
+    #  - "3000:3000"
     environment:
-      - NODE_ENV=production
-      # ważne: front nie może celować w localhost;
-      # przy IP bez domeny ustawiamy bazę na IP VPS (bez portu),
-      # a Nginx zmapuje /api -> backend:8000
-      - NEXT_PUBLIC_API_URL=http://51.195.40.228/
-    # Production: no volume mounts needed (standalone build is self-contained)
-    # For development, use docker-compose.dev.yml override with volume mounts
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     networks:
       - fro_network
     restart: unless-stopped
@@ -24,18 +24,18 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.simple
-    # NIE wystawiamy portu 8000 na hosta
+    # ports:
+    #  - "8000:8000"
     environment:
       - DATABASE_URL=mysql+aiomysql://fro_user:fro_password@mysql:3306/fro_db
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - SECRET_KEY=ZMIEN_TO_NA_MOCNY_SEKRET
-      - DEBUG=false
-      - LOG_LEVEL=INFO
-      # przy jednym pochodzeniu to i tak nie będzie użyte, ale zostawiamy poprawne originy:
-      - BACKEND_CORS_ORIGINS=http://51.195.40.228
-      - ALLOWED_HOSTS=51.195.40.228,backend,nginx,localhost,127.0.0.1
+      - SECRET_KEY=your-development-secret-key-change-in-production
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - BACKEND_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://localhost:3000,https://127.0.0.1:3000
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,backend
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
@@ -58,9 +58,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - SECRET_KEY=ZMIEN_TO_NA_MOCNY_SEKRET
-      - DEBUG=false
-      - LOG_LEVEL=INFO
+      - SECRET_KEY=your-development-secret-key-change-in-production
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
@@ -89,9 +89,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - SECRET_KEY=ZMIEN_TO_NA_MOCNY_SEKRET
-      - DEBUG=false
-      - LOG_LEVEL=INFO
+      - SECRET_KEY=your-development-secret-key-change-in-production
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
     volumes:
       - ./backend:/app
     networks:
@@ -110,7 +110,8 @@ services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    # NIE wystawiamy 3306 na świat
+    # ports:
+    #  - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=root_password
       - MYSQL_DATABASE=fro_db
@@ -129,7 +130,8 @@ services:
   # Redis
   redis:
     image: redis:7-alpine
-    # NIE wystawiamy 6379 na świat
+    #ports:
+    # - "6379:6379"
     volumes:
       - redis_data:/data
       - ./infrastructure/redis/redis.conf:/etc/redis/redis.conf:ro
@@ -142,15 +144,16 @@ services:
       timeout: 3s
       retries: 5
 
-  # Nginx Reverse Proxy (jedyny publiczny punkt wejścia)
+  # Nginx Reverse Proxy (dla produkcji)
   nginx:
     image: nginx:1.24-alpine
     container_name: regcalc-nginx
     ports:
-      - "80:80"       # tylko :80 (bez domeny na razie nie używamy :443)
+      - "8080:80"
+      - "443:443"
     volumes:
       - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-     # - ./nginx/sse.conf:/etc/nginx/sse.conf:ro
+      - ./nginx/sse.conf:/etc/nginx/sse.conf:ro
       - ./infrastructure/nginx/logs:/var/log/nginx
     networks:
       - fro_network
@@ -161,9 +164,11 @@ services:
     profiles:
       - production
 
-  # Prometheus / Grafana / Mailhog – zostają wewnątrz, bez ports:
+  # Prometheus Monitoring
   prometheus:
     image: prom/prometheus:v2.45.0
+    # ports:
+    #  - "9090:9090"
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -171,6 +176,8 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=90d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     networks:
       - fro_network
@@ -178,8 +185,11 @@ services:
     profiles:
       - monitoring
 
+  # Grafana Dashboard
   grafana:
     image: grafana/grafana:10.0.0
+    # ports:
+    #  - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin_password
       - GF_USERS_ALLOW_SIGN_UP=false
@@ -196,8 +206,12 @@ services:
     profiles:
       - monitoring
 
+  # Mailhog (Development Email Testing)
   mailhog:
     image: mailhog/mailhog:v1.0.1
+    #ports:
+    #  - "1025:1025"  # SMTP
+    #  - "8025:8025"  # Web UI
     networks:
       - fro_network
     restart: unless-stopped

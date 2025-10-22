@@ -10,8 +10,8 @@ Forglass Regenerator Optimizer (FRO) is an on-premise system for optimizing glas
 
 **Current Status**: **ALL MVP MODULES COMPLETED** ✅ - Import module (100%), optimization engine (100%), and reporting system (100%) complete - authentication, complete XLSX import pipeline with validation, dry-run capabilities, column mapping interface, **SLSQP optimization algorithm fully functional**, scenario management, real-time progress tracking, **comprehensive interactive dashboard with real-time metrics and charts**. **FAZA 1-4 COMPLETED** ✅ - All core modules functional with physics model, database integration, API endpoints, and frontend interface. **Materials database fully expanded** ✅ - 103 standard materials available. **3D Visualization System** ✅ - Complete Three.js implementation. **Centralized API Client** ✅ - Frontend-backend communication fixed. **Interactive Dashboard** ✅ - Real-time metrics, Recharts visualizations, auto-refresh. **Materials Management** ✅ - Full CRUD operations with create/export functionality. Testing infrastructure stable with 45% code coverage baseline. **System ready for production deployment**.
 
-**Quick Start**:
-1. `docker compose up -d` (starts all services)
+**Quick Start (Development)**:
+1. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d` (starts all services with development configuration)
 2. Wait 30-60 seconds for all services to start properly
 3. Apply migrations: `docker compose exec backend alembic upgrade head`
 4. Initialize materials: (see materials initialization command in Backend section)
@@ -19,6 +19,11 @@ Forglass Regenerator Optimizer (FRO) is an on-premise system for optimizing glas
 6. Access frontend at http://localhost:3000
 7. Login with admin/admin credentials
 8. API docs at http://localhost:8000/api/v1/docs
+
+**Production Deployment**:
+- See `DEPLOYMENT.md` for complete VPS deployment guide
+- Uses multi-stage Docker build for optimized production images
+- Nginx reverse proxy handles all external traffic on port 80
 
 **Quick Debug Check**:
 - Backend health: `curl http://localhost:8000/health`
@@ -658,6 +663,14 @@ const response = await fetch('/api/v1/materials/')
 - **Celery healthcheck**: Workers may show "unhealthy" status but function correctly (known Docker Compose issue)
 - **Test coverage**: 45% current vs 80% target - focus on service layer testing
 - **Scenario Creation**: Fixed role validation and Pydantic schema issues (optimization.py:40, schemas.py:137)
+
+#### Production Deployment Files (Added 2025-10-22)
+- ✅ **frontend/Dockerfile**: Multi-stage production build with Tailwind CSS compilation
+- ✅ **frontend/Dockerfile.dev**: Development mode with hot reload
+- ✅ **docker-compose.yml**: Production configuration with nginx reverse proxy
+- ✅ **docker-compose.dev.yml**: Development override with direct port access
+- ✅ **DEPLOYMENT.md**: Complete VPS deployment guide with troubleshooting
+- ✅ **next.config.js**: Updated with `output: 'standalone'` for Docker optimization
 
 
 ## Environment Variables Reference

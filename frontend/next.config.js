@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Production optimization: standalone output for Docker
+  output: 'standalone',
+
   typescript: {
     // Włącza strict mode dla TypeScript
     tsconfigPath: './tsconfig.json',
