@@ -38,7 +38,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddInfrastructure();
 
 // Register Application services (Business logic)
-builder.Services.AddApplication();
+builder.Services.AddApplication(configuration);
 
 // Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
 try
