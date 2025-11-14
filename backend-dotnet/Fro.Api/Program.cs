@@ -246,6 +246,17 @@ if (app.Environment.IsDevelopment())
             {
                 Console.WriteLine("✓ Database is up to date (no pending migrations)");
             }
+
+            // Seed database if empty (development only)
+            try
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<Fro.Infrastructure.Data.DatabaseSeeder>();
+                await seeder.SeedAsync();
+            }
+            catch (Exception seedEx)
+            {
+                Console.WriteLine($"⚠ Warning: Database seeding failed: {seedEx.Message}");
+            }
         }
         else
         {
