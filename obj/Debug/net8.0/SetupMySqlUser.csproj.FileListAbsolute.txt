@@ -1,0 +1,6 @@
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.csproj.AssemblyReference.cache
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.GeneratedMSBuildEditorConfig.editorconfig
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.AssemblyInfoInputs.cache
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.AssemblyInfo.cs
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.csproj.CoreCompileInputs.cache
+F:\RegeneratorCalc_v2\obj\Debug\net8.0\SetupMySqlUser.sourcelink.json

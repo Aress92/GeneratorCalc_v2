@@ -1,0 +1,12 @@
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\bin\Debug\net8.0\Fro.Domain.deps.json
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\bin\Debug\net8.0\Fro.Domain.dll
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\bin\Debug\net8.0\Fro.Domain.pdb
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.GeneratedMSBuildEditorConfig.editorconfig
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.AssemblyInfoInputs.cache
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.AssemblyInfo.cs
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.csproj.CoreCompileInputs.cache
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.sourcelink.json
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.dll
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\refint\Fro.Domain.dll
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\Fro.Domain.pdb
+F:\RegeneratorCalc_v2\backend-dotnet\Fro.Domain\obj\Debug\net8.0\ref\Fro.Domain.dll

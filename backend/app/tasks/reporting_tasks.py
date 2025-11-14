@@ -5,7 +5,7 @@ Zadania Celery dla generowania raportów.
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Dict, Any, List
 
 from celery import current_task
@@ -82,10 +82,10 @@ def generate_report_task(self, report_id: str):
                 # Update report with results
                 report.status = ReportStatus.COMPLETED
                 report.progress_percentage = 100.0
-                report.generated_at = datetime.utcnow()
+                report.generated_at = datetime.now(UTC)
                 report.file_path = str(file_path)
                 report.file_size_bytes = file_path.stat().st_size if file_path.exists() else 0
-                report.expires_at = datetime.utcnow() + timedelta(days=30)
+                report.expires_at = datetime.now(UTC) + timedelta(days=30)
 
                 await db.commit()
 
@@ -129,7 +129,7 @@ def cleanup_expired_reports():
         async with AsyncSessionLocal() as db:
             try:
                 # Find expired reports
-                expired_date = datetime.utcnow()
+                expired_date = datetime.now(UTC)
                 stmt = select(Report).where(
                     Report.expires_at < expired_date,
                     Report.status == ReportStatus.COMPLETED
@@ -179,7 +179,7 @@ def generate_scheduled_reports():
                 from app.models.reporting import ReportSchedule
 
                 # Find due schedules
-                current_time = datetime.utcnow()
+                current_time = datetime.now(UTC)
                 stmt = select(ReportSchedule).where(
                     ReportSchedule.is_active == True,
                     ReportSchedule.next_run_at <= current_time
@@ -249,7 +249,7 @@ def collect_system_metrics():
                 import psutil
                 import time
 
-                current_time = datetime.utcnow()
+                current_time = datetime.now(UTC)
 
                 # System metrics
                 cpu_usage = psutil.cpu_percent(interval=1)

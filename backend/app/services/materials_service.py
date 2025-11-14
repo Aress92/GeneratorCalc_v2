@@ -322,7 +322,7 @@ class MaterialsService:
             Updated material or None if not found
         """
         try:
-            from datetime import datetime
+            from datetime import datetime, UTC
 
             result = await self.db.execute(
                 update(Material)
@@ -330,7 +330,7 @@ class MaterialsService:
                 .values(
                     approval_status=approval_status,
                     approved_by_user_id=approver_user_id,
-                    approved_at=datetime.utcnow()
+                    approved_at=datetime.now(UTC)
                 )
             )
 
@@ -418,6 +418,93 @@ class MaterialsService:
             await self.db.rollback()
             logger.error("Failed to supersede material", error=str(e))
             raise
+
+    async def reject_material(
+        self,
+        material_id: str,
+        user_id: str,
+        reason: str
+    ) -> Optional[Material]:
+        """
+        Reject material approval.
+
+        Args:
+            material_id: ID of material to reject
+            user_id: ID of user rejecting
+            reason: Rejection reason
+
+        Returns:
+            Updated material or None if not found
+        """
+        from datetime import datetime, UTC
+
+        material = await self.get_material(material_id)
+        if not material:
+            return None
+
+        await self.db.execute(
+            update(Material)
+            .where(Material.id == material_id)
+            .values(
+                approval_status="rejected",
+                rejection_reason=reason,
+                approved_by_user_id=user_id,
+                approved_at=datetime.now(UTC)
+            )
+        )
+        await self.db.commit()
+
+        # Get updated material
+        updated_material = await self.get_material(material_id)
+
+        logger.info(
+            "Material rejected",
+            material_id=material_id,
+            user_id=user_id,
+            reason=reason
+        )
+
+        return updated_material
+
+    async def _validate_material_data(self, material_data: dict) -> bool:
+        """
+        Validate material properties ranges.
+
+        Args:
+            material_data: Dictionary with material properties
+
+        Returns:
+            True if valid
+
+        Raises:
+            ValueError: If validation fails
+        """
+        # Validate thermal_conductivity
+        thermal_cond = material_data.get("thermal_conductivity")
+        if thermal_cond is not None and thermal_cond < 0:
+            raise ValueError("Thermal conductivity must be non-negative")
+
+        # Validate density
+        density = material_data.get("density")
+        if density is not None and density <= 0:
+            raise ValueError("Density must be positive")
+
+        # Validate specific_heat
+        specific_heat = material_data.get("specific_heat")
+        if specific_heat is not None and specific_heat <= 0:
+            raise ValueError("Specific heat must be positive")
+
+        # Validate max_temperature
+        max_temp = material_data.get("max_temperature")
+        if max_temp is not None and max_temp < 0:
+            raise ValueError("Max temperature must be non-negative")
+
+        # Validate porosity (0-100%)
+        porosity = material_data.get("porosity")
+        if porosity is not None and (porosity < 0 or porosity > 100):
+            raise ValueError("Porosity must be between 0 and 100")
+
+        return True
 
     async def get_material_statistics(self) -> Dict[str, Any]:
         """Get statistics about the materials library."""

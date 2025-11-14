@@ -1,0 +1,6 @@
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.csproj.AssemblyReference.cache
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.GeneratedMSBuildEditorConfig.editorconfig
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.AssemblyInfoInputs.cache
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.AssemblyInfo.cs
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.csproj.CoreCompileInputs.cache
+F:\RegeneratorCalc_v2\backend-dotnet\obj\Debug\net8.0\TestDbContext.sourcelink.json

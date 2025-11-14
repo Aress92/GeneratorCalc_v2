@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Suspense, useRef, useState, useEffect } from 'react'
+import React, { Suspense, useRef, useState, useEffect, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, Grid, Box, Text, Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -278,170 +278,104 @@ function Loader() {
 
 // Flow visualization component
 function FlowVisualization({ config, show }: { config: RegeneratorConfig, show: boolean }) {
-  if (!show) return null
-
   const { length, width, height } = config.geometry
   const arrowsRef = useRef<THREE.Group>(null)
 
-  useFrame((state) => {
-    if (arrowsRef.current) {
-      arrowsRef.current.children.forEach((arrow, index) => {
-        const offset = Math.sin(state.clock.elapsedTime * 2 + index * 0.5) * 0.1
-        arrow.position.z = (index - 2) * (length / 4) + offset
-      })
+  const arrows = useMemo(() => {
+    if (!show) return []
+
+    const arrowElements = []
+    for (let i = 0; i < 5; i++) {
+      arrowElements.push(
+        <mesh key={`flow-arrow-${i}`} position={[0, height/2, (i - 2) * (length / 4)]}>
+          <coneGeometry args={[0.2, 0.6, 8]} />
+          <meshBasicMaterial color="#00FF00" transparent opacity={0.7} />
+        </mesh>
+      )
     }
+    return arrowElements
+  }, [show, length, height])
+
+  useFrame((state) => {
+    if (!show || !arrowsRef.current) return
+
+    arrowsRef.current.children.forEach((arrow, index) => {
+      const offset = Math.sin(state.clock.elapsedTime * 2 + index * 0.5) * 0.1
+      arrow.position.z = (index - 2) * (length / 4) + offset
+    })
   })
 
-  const arrows = []
-  for (let i = 0; i < 5; i++) {
-    arrows.push(
-      <mesh key={`flow-arrow-${i}`} position={[0, height/2, (i - 2) * (length / 4)]}>
-        <coneGeometry args={[0.2, 0.6, 8]} />
-        <meshBasicMaterial color="#00FF00" transparent opacity={0.7} />
-      </mesh>
-    )
-  }
+  if (!show) return null
 
   return (
     <group ref={arrowsRef}>
       {arrows}
-      {/* Flow direction indicator */}
-      <Html position={[-width/2 - 1, height, 0]}>
-        <div className="bg-black/70 text-white p-2 rounded text-xs">
-          <div className="font-bold mb-1">Gas Flow</div>
-          <div className="flex items-center gap-1">
-            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-green-500"></div>
-            <span>Direction</span>
-          </div>
-        </div>
-      </Html>
     </group>
   )
 }
 
-// Main RegeneratorViewer component
+// Temperature visualization component
+function TemperatureVisualization({ config, show }: { config: RegeneratorConfig, show: boolean }) {
+  if (!show) return null
+
+  const { length, width, height } = config.geometry
+  const tempData = config.thermal || { gas_temp_inlet: 1600, gas_temp_outlet: 600 }
+
+  return (
+    <group>
+      {/* Temperature gradient visualization */}
+      <Html position={[width/2 + 1, height, 0]}>
+        <div className="bg-black/70 text-white p-2 rounded text-xs">
+          <div className="font-bold mb-1">Temperature Profile</div>
+          <div>Inlet: {tempData.gas_temp_inlet || 1600}°C</div>
+          <div>Outlet: {tempData.gas_temp_outlet || 600}°C</div>
+        </div>
+      </Html>
+
+      {/* Visual temperature gradient */}
+      <mesh position={[0, height + 0.5, 0]}>
+        <boxGeometry args={[length, 0.1, width]} />
+        <meshBasicMaterial color="#FF4500" transparent opacity={0.5} />
+      </mesh>
+    </group>
+  )
+}
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <Html center>
+      <div className="bg-black/70 text-white p-4 rounded-lg">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
+        <div>Loading 3D Model...</div>
+      </div>
+    </Html>
+  )
+}
+
+// Main component export
 export default function RegeneratorViewer({
   config,
   showTemperatureMap = false,
-  showFlow = false,
-  className = ""
+  showFlow = false
 }: RegeneratorViewerProps) {
-  const [isWireframe, setIsWireframe] = useState(false)
-  const [localShowTemperature, setLocalShowTemperature] = useState(showTemperatureMap)
-  const [localShowFlow, setLocalShowFlow] = useState(showFlow)
-
-  // Update local state when props change
-  useEffect(() => {
-    setLocalShowTemperature(showTemperatureMap)
-  }, [showTemperatureMap])
-
-  useEffect(() => {
-    setLocalShowFlow(showFlow)
-  }, [showFlow])
-
   return (
-    <div className={`relative w-full h-full ${className}`}>
-      <Canvas
-        camera={{
-          position: [10, 8, 10],
-          fov: 60,
-          near: 0.1,
-          far: 1000
-        }}
-        shadows
-      >
-        <Suspense fallback={<Loader />}>
-          {/* Lighting */}
-          <ambientLight intensity={0.4} />
-          <directionalLight
-            position={[10, 10, 10]}
-            intensity={1}
-            castShadow
-            shadow-mapSize-width={2048}
-            shadow-mapSize-height={2048}
-          />
-          <pointLight position={[0, 10, 0]} intensity={0.5} color="#FFA500" />
+    <div className="w-full h-96 bg-gray-100 rounded-lg overflow-hidden">
+      <Canvas camera={{ position: [15, 10, 15], fov: 60 }}>
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        <pointLight position={[-10, 10, -10]} intensity={0.5} />
 
-          {/* Environment and controls */}
-          <Environment preset="warehouse" />
-          <OrbitControls
-            enablePan={true}
-            enableZoom={true}
-            enableRotate={true}
-            minDistance={5}
-            maxDistance={50}
-          />
-
-          {/* Ground grid */}
-          <Grid
-            position={[0, -1, 0]}
-            args={[20, 20]}
-            cellSize={1}
-            cellThickness={0.5}
-            cellColor="#666666"
-            sectionSize={5}
-            sectionThickness={1}
-            sectionColor="#888888"
-          />
-
-          {/* Main regenerator structure */}
+        <Suspense fallback={<LoadingFallback />}>
           <RegeneratorStructure config={config} />
+          <CheckerPattern config={config} />
 
-          {/* Temperature overlay */}
-          <TemperatureMap config={config} show={localShowTemperature} />
+          {showFlow && <FlowVisualization config={config} show={showFlow} />}
+          {showTemperatureMap && <TemperatureVisualization config={config} show={showTemperatureMap} />}
 
-          {/* Flow visualization */}
-          <FlowVisualization config={config} show={localShowFlow} />
-
+          <OrbitControls enablePan enableZoom enableRotate />
         </Suspense>
       </Canvas>
-
-      {/* Controls overlay */}
-      <div className="absolute top-4 right-4 bg-black/50 p-3 rounded-lg text-white space-y-2">
-        <h3 className="font-bold">3D Controls</h3>
-        <div className="text-sm space-y-1">
-          <div>• Mouse: Rotate view</div>
-          <div>• Scroll: Zoom in/out</div>
-          <div>• Right-click: Pan</div>
-        </div>
-        <div className="space-y-2 pt-2 border-t border-white/20">
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={localShowTemperature}
-              onChange={(e) => setLocalShowTemperature(e.target.checked)}
-            />
-            <span>Temperature Map</span>
-          </label>
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={localShowFlow}
-              onChange={(e) => setLocalShowFlow(e.target.checked)}
-            />
-            <span>Flow Visualization</span>
-          </label>
-          <label className="flex items-center space-x-2 text-sm">
-            <input
-              type="checkbox"
-              checked={isWireframe}
-              onChange={() => setIsWireframe(!isWireframe)}
-            />
-            <span>Wireframe</span>
-          </label>
-        </div>
-      </div>
-
-      {/* Info panel */}
-      <div className="absolute bottom-4 left-4 bg-black/50 p-3 rounded-lg text-white">
-        <h4 className="font-bold mb-2">Regenerator Specs</h4>
-        <div className="text-sm space-y-1">
-          <div>Dimensions: {config.geometry.length}×{config.geometry.width}×{config.geometry.height}m</div>
-          <div>Wall: {config.geometry.wall_thickness}m thick</div>
-          <div>Checker: {config.checker.height}m, {config.checker.spacing}m spacing</div>
-          <div>Pattern: {config.checker.pattern}</div>
-        </div>
-      </div>
     </div>
   )
 }

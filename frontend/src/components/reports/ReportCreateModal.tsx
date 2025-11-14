@@ -2,18 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { OptimizationAPI } from '@/lib/api-client'
+import type { ScenariosResponse, OptimizationScenario } from '@/types/api'
 
 interface ReportCreateModalProps {
   onClose: () => void
   onCreate: (reportData: any) => void
   initialTemplate?: any
-}
-
-interface OptimizationScenario {
-  id: string
-  name: string
-  scenario_type: string
-  created_at: string
 }
 
 const REPORT_TYPES = [
@@ -97,15 +91,15 @@ export function ReportCreateModal({ onClose, onCreate, initialTemplate }: Report
     // Initialize form with template data if provided
     const initialData = {
       title: initialTemplate?.name ? `${initialTemplate.name} - ${new Date().toLocaleDateString()}` : '',
-      description: initialTemplate?.description || '',
-      report_type: initialTemplate?.template_config?.report_type || '',
-      format: initialTemplate?.template_config?.format || 'pdf',
+      description: (initialTemplate?.description as string) || '',
+      report_type: (initialTemplate?.template_config?.report_type as string) || 'optimization',
+      format: (initialTemplate?.template_config?.format as string) || 'pdf',
       date_range: {
-        start_date: startDate.toISOString().split('T')[0],
-        end_date: endDate.toISOString().split('T')[0]
+        start_date: startDate.toISOString().split('T')[0]!,
+        end_date: endDate.toISOString().split('T')[0]!
       },
       report_config: initialTemplate?.template_config || {},
-      filters: initialTemplate?.default_filters || {}
+      filters: (initialTemplate?.default_filters as any) || {}
     }
 
     setFormData(initialData)
@@ -113,7 +107,7 @@ export function ReportCreateModal({ onClose, onCreate, initialTemplate }: Report
 
   const loadScenarios = async () => {
     try {
-      const data = await OptimizationAPI.getScenarios()
+      const data = await OptimizationAPI.getScenarios() as ScenariosResponse
       setScenarios(data.scenarios || [])
     } catch (error) {
       console.error('Error loading scenarios:', error)

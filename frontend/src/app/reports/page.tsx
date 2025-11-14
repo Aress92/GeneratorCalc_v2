@@ -9,32 +9,7 @@ import { ReportCreateModal } from '@/components/reports/ReportCreateModal'
 import { DashboardMetrics } from '@/components/reports/DashboardMetrics'
 import { ReportTemplates } from '@/components/reports/ReportTemplates'
 import { ReportsAPI } from '@/lib/api-client'
-
-interface Report {
-  id: string
-  title: string
-  description?: string
-  report_type: string
-  status: 'pending' | 'generating' | 'completed' | 'failed'
-  format: string
-  progress_percentage: number
-  generated_at?: string
-  file_size_bytes?: number
-  download_url?: string
-  created_at: string
-  updated_at: string
-}
-
-interface DashboardMetricsType {
-  total_optimizations: number
-  active_users: number
-  fuel_savings_total: number
-  co2_reduction_total: number
-  system_uptime: number
-  api_response_time_avg: number
-  optimizations_this_month: number
-  success_rate: number
-}
+import type { ReportsResponse, DashboardMetrics as DashboardMetricsType, Report } from '@/types/api'
 
 function ReportsPage({ user }: { user: User }) {
   const [reports, setReports] = useState<Report[]>([])
@@ -53,7 +28,7 @@ function ReportsPage({ user }: { user: User }) {
 
   const loadReports = async () => {
     try {
-      const data = await ReportsAPI.getReports()
+      const data = await ReportsAPI.getReports() as ReportsResponse
       setReports(data.reports || [])
     } catch (error) {
       console.error('Error loading reports:', error)
@@ -64,7 +39,7 @@ function ReportsPage({ user }: { user: User }) {
 
   const loadDashboardMetrics = async () => {
     try {
-      const data = await ReportsAPI.getDashboard()
+      const data = await ReportsAPI.getDashboard() as DashboardMetricsType
       setMetrics(data)
     } catch (error) {
       console.error('Error loading dashboard metrics:', error)

@@ -79,23 +79,10 @@ export default function MetricsDashboard() {
       setLoading(true);
       setError(null);
 
-      // In production, this would be: const data = await ReportsAPI.getDashboard();
-      // For now, simulating with realistic data
-      const simulatedMetrics: DashboardMetrics = {
-        total_optimizations: 156,
-        active_users: 12,
-        fuel_savings_total: 11.8,
-        co2_reduction_total: 1250,
-        system_uptime: 99.5,
-        api_response_time_avg: 145,
-        optimizations_this_month: 28,
-        success_rate: 89.7
-      };
+      // Fetch real data from backend
+      const data = await ReportsAPI.getDashboard();
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setMetrics(simulatedMetrics);
+      setMetrics(data);
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Failed to fetch dashboard metrics:', err);

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "tN8aHndQiCo=",
+  "success": true,
+  "projectFilePath": "F:\\RegeneratorCalc_v2\\backend-dotnet\\Fro.Domain\\Fro.Domain.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\dwron\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.22\\microsoft.netcore.app.ref.8.0.22.nupkg.sha512",
+    "C:\\Users\\dwron\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.22\\microsoft.windowsdesktop.app.ref.8.0.22.nupkg.sha512",
+    "C:\\Users\\dwron\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.22\\microsoft.aspnetcore.app.ref.8.0.22.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -4,7 +4,7 @@ Excel report generation service.
 Serwis generowania raportów Excel.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, List, Any
 import pandas as pd
@@ -57,7 +57,7 @@ class ExcelGenerator:
         # Report metadata
         metadata = [
             ('Report Type:', report_data.get('report_type', '').replace('_', ' ').title()),
-            ('Generated:', datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')),
+            ('Generated:', datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')),
             ('Report ID:', report_data.get('id', 'N/A')),
             ('Format:', report_data.get('format', 'Excel').upper()),
             ('Status:', report_data.get('status', 'completed').title())

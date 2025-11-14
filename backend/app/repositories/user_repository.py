@@ -159,12 +159,12 @@ class UserRepository(BaseRepository[User]):
         Raises:
             ResourceNotFoundError: If user not found
         """
-        from datetime import datetime
+        from datetime import datetime, UTC
 
         stmt = (
             update(User)
             .where(User.id == user_id)
-            .values(last_login=datetime.utcnow())
+            .values(last_login=datetime.now(UTC))
             .returning(User)
         )
         result = await self.session.execute(stmt)
@@ -257,12 +257,12 @@ class UserRepository(BaseRepository[User]):
         Returns:
             User if found and token not expired, None otherwise
         """
-        from datetime import datetime
+        from datetime import datetime, UTC
 
         stmt = select(User).where(
             and_(
                 User.reset_token == reset_token,
-                User.reset_token_expires > datetime.utcnow(),
+                User.reset_token_expires > datetime.now(UTC),
             )
         )
         result = await self.session.execute(stmt)

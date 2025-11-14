@@ -9,11 +9,13 @@ from typing import AsyncGenerator
 
 import structlog
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from starlette.responses import Response
+from pydantic import ValidationError
 
 from app.api.v1.api import api_router
 from app.core.config import settings
@@ -72,6 +74,71 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """
+    Handle Pydantic validation errors with user-friendly messages.
+
+    Converts technical validation errors into readable messages for frontend display.
+    """
+    errors = []
+
+    for error in exc.errors():
+        field_path = " -> ".join(str(loc) for loc in error["loc"] if loc != "body")
+        error_type = error["type"]
+        msg = error["msg"]
+
+        # Create user-friendly messages based on error type
+        if error_type == "missing":
+            user_message = f"Pole '{field_path}' jest wymagane"
+        elif error_type == "value_error":
+            user_message = f"Nieprawidłowa wartość dla pola '{field_path}': {msg}"
+        elif error_type == "type_error":
+            user_message = f"Nieprawidłowy typ danych dla pola '{field_path}'"
+        elif error_type == "string_too_short":
+            user_message = f"Pole '{field_path}' jest za krótkie (minimum {error.get('ctx', {}).get('limit_value', '')} znaków)"
+        elif error_type == "string_too_long":
+            user_message = f"Pole '{field_path}' jest za długie (maksimum {error.get('ctx', {}).get('limit_value', '')} znaków)"
+        elif error_type == "value_error.number.not_gt":
+            user_message = f"Pole '{field_path}' musi być większe niż {error.get('ctx', {}).get('limit_value', 0)}"
+        elif error_type == "value_error.number.not_ge":
+            user_message = f"Pole '{field_path}' musi być większe lub równe {error.get('ctx', {}).get('limit_value', 0)}"
+        elif error_type == "value_error.number.not_lt":
+            user_message = f"Pole '{field_path}' musi być mniejsze niż {error.get('ctx', {}).get('limit_value', 0)}"
+        elif error_type == "value_error.number.not_le":
+            user_message = f"Pole '{field_path}' musi być mniejsze lub równe {error.get('ctx', {}).get('limit_value', 0)}"
+        elif "enum" in error_type.lower():
+            allowed = error.get("ctx", {}).get("enum_values", [])
+            user_message = f"Pole '{field_path}' musi mieć jedną z wartości: {', '.join(map(str, allowed))}"
+        else:
+            # Fallback to original message
+            user_message = f"{field_path}: {msg}"
+
+        errors.append({
+            "field": field_path,
+            "message": user_message,
+            "type": error_type
+        })
+
+    logger.warning(
+        "Validation error occurred",
+        path=request.url.path,
+        method=request.method,
+        errors=errors,
+    )
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Błąd walidacji danych",
+            "errors": errors,
+            "type": "validation_error"
+        },
     )
 
 

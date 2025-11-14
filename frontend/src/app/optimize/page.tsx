@@ -10,34 +10,24 @@ import { useState, useEffect } from 'react';
 import { useAuth, withAuth } from '@/contexts/AuthContext';
 import { hasPermission } from '@/lib/auth';
 import { OptimizationAPI, RegeneratorsAPI } from '@/lib/api-client';
+import type { ScenariosResponse, JobsResponse, OptimizationScenario, OptimizationJob } from '@/types/api';
+import ValidationErrorAlert from '@/components/common/ValidationErrorAlert';
+import { LoadingOverlay } from '@/components/common/LoadingSpinner';
+import OptimizationProgressBar from '@/components/optimization/OptimizationProgressBar';
+import OptimizationResults from '@/components/optimization/OptimizationResults';
+import ConvergenceChart from '@/components/optimization/ConvergenceChart';
+import ScenarioDetailsModal from '@/components/optimization/ScenarioDetailsModal';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+// TODO: Re-enable sonner after fixing pnpm installation
+// import { toast } from 'sonner';
 
-interface OptimizationScenario {
-  id: string;
-  name: string;
-  description?: string;
-  scenario_type: string;
-  base_configuration_id: string;
-  objective: string;
-  algorithm: string;
-  status: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-interface OptimizationJob {
-  id: string;
-  scenario_id: string;
-  job_name?: string;
-  status: string;
-  progress_percentage: number;
-  current_iteration: number;
-  started_at?: string;
-  completed_at?: string;
-  runtime_seconds?: number;
-  error_message?: string;
-  created_at: string;
-}
+// Temporary toast fallback until sonner is installed
+const toast = {
+  success: (msg: string) => console.log('✅', msg),
+  error: (msg: string) => console.error('❌', msg),
+  warning: (msg: string) => console.warn('⚠️', msg),
+  info: (msg: string) => console.info('ℹ️', msg),
+};
 
 interface RegeneratorConfig {
   id: string;
@@ -55,6 +45,38 @@ function OptimizePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCreateScenario, setShowCreateScenario] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<OptimizationScenario | null>(null);
+  const [selectedJobForResults, setSelectedJobForResults] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Array<{field: string, message: string, type: string}>>([]);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [selectedScenarios, setSelectedScenarios] = useState<Set<string>>(new Set());
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [lastError, setLastError] = useState<any>(null);
+  const [showCreateBaseConfig, setShowCreateBaseConfig] = useState(false);
+  const [newBaseConfig, setNewBaseConfig] = useState({
+    name: '',
+    regenerator_type: 'crown',
+    geometry_config: {
+      length: 10.0,
+      width: 8.0,
+      height: 6.0,
+      wall_thickness: 0.4
+    },
+    thermal_config: {
+      gas_temp_inlet: 1600.0,
+      gas_temp_outlet: 600.0,
+      ambient_temp: 25.0
+    },
+    flow_config: {
+      mass_flow_rate: 50.0,
+      cycle_time: 1200.0,
+      pressure_inlet: 101325.0
+    },
+    materials_config: {
+      thermal_conductivity: 2.5,
+      specific_heat: 900.0,
+      checker_density: 2300.0
+    }
+  });
 
   // New scenario form state
   const [newScenario, setNewScenario] = useState({
@@ -65,8 +87,10 @@ function OptimizePage() {
     objective: 'minimize_fuel_consumption',
     algorithm: 'slsqp',
     max_iterations: 1000,
+    max_function_evaluations: 5000,  // Added missing field
     tolerance: 0.000001,
     max_runtime_minutes: 120,
+    objective_weights: null,  // Added missing field
     design_variables: {
       checker_height: {
         name: 'checker_height',
@@ -98,16 +122,32 @@ function OptimizePage() {
     }
   });
 
+  // Load data when tab changes
   useEffect(() => {
-    if (user && hasPermission(user, 'engineer')) {
+    if (!user || !hasPermission(user, 'engineer')) return;
+
+    if (activeTab === 'scenarios') {
+      loadScenarios();
       loadRegeneratorConfigs();
-      if (activeTab === 'scenarios') {
-        loadScenarios();
-      } else if (activeTab === 'jobs') {
-        loadJobs();
-      }
+    } else if (activeTab === 'jobs' || activeTab === 'results') {
+      loadJobs();
     }
-  }, [activeTab, user]);
+  }, [activeTab]); // ONLY activeTab - no user, no callbacks!
+
+  // Auto-refresh jobs every 5 seconds when on jobs tab
+  useEffect(() => {
+    if (!user || !hasPermission(user, 'engineer')) return;
+    if (activeTab !== 'jobs' || !autoRefreshEnabled) return;
+
+    const hasRunningJobs = jobs.some(job => job.status === 'running' || job.status === 'pending');
+    if (!hasRunningJobs) return; // Only refresh if there are active jobs
+
+    const interval = setInterval(() => {
+      loadJobs();
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [activeTab, autoRefreshEnabled, jobs, user]);
 
   if (!user || !hasPermission(user, 'engineer')) {
     return (
@@ -138,10 +178,77 @@ function OptimizePage() {
     }
   };
 
+  const createBaseConfiguration = async () => {
+    if (!newBaseConfig.name.trim()) {
+      toast.error('Nazwa konfiguracji jest wymagana');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const configData = {
+        name: newBaseConfig.name,
+        regenerator_type: newBaseConfig.regenerator_type,
+        status: 'completed',
+        ...newBaseConfig
+      };
+
+      const response = await RegeneratorsAPI.createRegenerator(configData);
+      console.log('Base configuration created:', response);
+
+      toast.success('Konfiguracja bazowa została utworzona');
+
+      // Reload configs and select the new one
+      await loadRegeneratorConfigs();
+
+      // Set the new config as selected
+      if (response && response.id) {
+        setNewScenario(prev => ({
+          ...prev,
+          base_configuration_id: response.id
+        }));
+      }
+
+      // Close modal and reset form
+      setShowCreateBaseConfig(false);
+      setNewBaseConfig({
+        name: '',
+        regenerator_type: 'crown',
+        geometry_config: {
+          length: 10.0,
+          width: 8.0,
+          height: 6.0,
+          wall_thickness: 0.4
+        },
+        thermal_config: {
+          gas_temp_inlet: 1600.0,
+          gas_temp_outlet: 600.0,
+          ambient_temp: 25.0
+        },
+        flow_config: {
+          mass_flow_rate: 50.0,
+          cycle_time: 1200.0,
+          pressure_inlet: 101325.0
+        },
+        materials_config: {
+          thermal_conductivity: 2.5,
+          specific_heat: 900.0,
+          checker_density: 2300.0
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to create base configuration:', error);
+      toast.error(error.message || 'Nie udało się utworzyć konfiguracji bazowej');
+      setLastError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadScenarios = async () => {
     setIsLoading(true);
     try {
-      const data = await OptimizationAPI.getScenarios();
+      const data = await OptimizationAPI.getScenarios() as ScenariosResponse;
       setScenarios(data.scenarios || []);
     } catch (error) {
       console.error('Failed to load scenarios:', error);
@@ -154,7 +261,7 @@ function OptimizePage() {
     setIsLoading(true);
     try {
       // Load all jobs for the user
-      const data = await OptimizationAPI.getJobs();
+      const data = await OptimizationAPI.getJobs() as JobsResponse;
       setJobs(data.jobs || []);
     } catch (error) {
       console.error('Failed to load jobs:', error);
@@ -166,8 +273,16 @@ function OptimizePage() {
 
   const createScenario = async () => {
     setIsLoading(true);
+    setValidationErrors([]);
+
     try {
-      await OptimizationAPI.createScenario(newScenario);
+      // Debug: Log the data being sent
+      console.log('Creating scenario with data:', JSON.stringify(newScenario, null, 2));
+
+      const response = await OptimizationAPI.createScenario(newScenario);
+      console.log('Scenario created successfully:', response);
+
+      toast.success('Scenariusz został utworzony pomyślnie');
       await loadScenarios();
       setShowCreateScenario(false);
       setNewScenario({
@@ -175,9 +290,17 @@ function OptimizePage() {
         name: '',
         description: ''
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create scenario:', error);
-      alert('Nie udało się utworzyć scenariusza');
+
+      // Check if it's a validation error (422) with structured errors
+      if (error.status === 422 && error.validationErrors) {
+        setValidationErrors(error.validationErrors);
+        return; // Don't show alert, show validation errors component instead
+      }
+
+      // Fallback to toast for non-validation errors
+      toast.error(`Nie udało się utworzyć scenariusza: ${error instanceof Error ? error.message : 'Nieznany błąd'}`);
     } finally {
       setIsLoading(false);
     }
@@ -185,18 +308,169 @@ function OptimizePage() {
 
   const startOptimization = async (scenarioId: string) => {
     setIsLoading(true);
+    setLastError(null); // Clear previous errors
     try {
       await OptimizationAPI.createJob(scenarioId, {
         job_name: `Optymalizacja ${new Date().toLocaleString()}`,
         initial_values: {}
       });
+      toast.success('Zadanie optymalizacji zostało uruchomione');
       setActiveTab('jobs');
       await loadJobs();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to start optimization:', error);
-      alert('Nie udało się rozpocząć optymalizacji');
+
+      // Parse error from API response
+      let errorData = error;
+      if (error.message) {
+        try {
+          const parsed = JSON.parse(error.message);
+          if (parsed.detail) {
+            errorData = parsed.detail;
+          }
+        } catch {
+          // Not JSON, use as-is
+        }
+      }
+
+      // Store detailed error for display
+      setLastError(errorData);
+
+      // ✅ Special handling for rate limit errors (429)
+      if (error.status === 429 || errorData?.error_type === 'USER_RATE_LIMIT_EXCEEDED' || errorData?.error_type === 'SCENARIO_RATE_LIMIT_EXCEEDED') {
+        const activeCount = errorData?.active_jobs_count || 0;
+        const maxAllowed = errorData?.max_allowed || 5;
+        const errorMessage = errorData?.message || `Przekroczono limit współbieżnych zadań (${activeCount}/${maxAllowed})`;
+
+        toast.warning(errorMessage, {
+          duration: 6000,  // 6 seconds for important message
+          description: errorData?.suggestion || 'Poczekaj na zakończenie aktywnych zadań'
+        });
+      } else {
+        // Show brief toast notification for other errors
+        const errorMessage = errorData?.message || error.message || 'Nie udało się rozpocząć optymalizacji';
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const deleteScenario = async (scenarioId: string, scenarioName: string) => {
+    if (!confirm(`Czy na pewno chcesz usunąć scenariusz "${scenarioName}"?\n\nTa operacja jest nieodwracalna i usunie również wszystkie powiązane zadania optymalizacji.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await OptimizationAPI.deleteScenario(scenarioId);
+      await loadScenarios();
+      toast.success('Scenariusz został usunięty');
+    } catch (error) {
+      console.error('Failed to delete scenario:', error);
+      toast.error('Nie udało się usunąć scenariusza');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const bulkDeleteScenarios = async () => {
+    if (selectedScenarios.size === 0) return;
+
+    const count = selectedScenarios.size;
+    if (!confirm(`Czy na pewno chcesz usunąć ${count} scenariusz(y/ów)?\n\nTa operacja jest nieodwracalna i usunie również wszystkie powiązane zadania optymalizacji.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await OptimizationAPI.bulkDeleteScenarios(Array.from(selectedScenarios));
+      setSelectedScenarios(new Set());
+      await loadScenarios();
+      toast.success(`Usunięto ${count} scenariusz(y/ów)`);
+    } catch (error) {
+      console.error('Failed to bulk delete scenarios:', error);
+      toast.error('Nie udało się usunąć scenariuszy');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleScenarioSelection = (scenarioId: string) => {
+    const newSelection = new Set(selectedScenarios);
+    if (newSelection.has(scenarioId)) {
+      newSelection.delete(scenarioId);
+    } else {
+      newSelection.add(scenarioId);
+    }
+    setSelectedScenarios(newSelection);
+  };
+
+  const toggleAllScenarios = () => {
+    if (selectedScenarios.size === scenarios.length) {
+      setSelectedScenarios(new Set());
+    } else {
+      setSelectedScenarios(new Set(scenarios.map(s => s.id)));
+    }
+  };
+
+  const bulkDeleteJobs = async () => {
+    if (selectedJobs.size === 0) return;
+
+    const count = selectedJobs.size;
+    if (!confirm(`Czy na pewno chcesz usunąć ${count} zadanie/zadań?\n\nMożna usunąć tylko zakończone zadania (completed, failed, cancelled).`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await OptimizationAPI.bulkDeleteJobs(Array.from(selectedJobs)) as { deleted_count: number; skipped_count: number; message: string };
+      setSelectedJobs(new Set());
+      await loadJobs();
+
+      if (response.skipped_count > 0) {
+        toast.warning(`Usunięto ${response.deleted_count} zadanie/zadań. Pominięto ${response.skipped_count} aktywnych zadań.`);
+      } else {
+        toast.success(`Usunięto ${response.deleted_count} zadanie/zadań`);
+      }
+    } catch (error) {
+      console.error('Failed to bulk delete jobs:', error);
+      toast.error('Nie udało się usunąć zadań');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleJobSelection = (jobId: string) => {
+    const newSelection = new Set(selectedJobs);
+    if (newSelection.has(jobId)) {
+      newSelection.delete(jobId);
+    } else {
+      newSelection.add(jobId);
+    }
+    setSelectedJobs(newSelection);
+  };
+
+  const toggleAllJobs = () => {
+    if (selectedJobs.size === jobs.length) {
+      setSelectedJobs(new Set());
+    } else {
+      setSelectedJobs(new Set(jobs.map(j => j.id)));
+    }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    if (!confirm('Czy na pewno chcesz anulować to zadanie optymalizacji?')) {
+      return;
+    }
+
+    try {
+      await OptimizationAPI.cancelJobById(jobId);
+      toast.success('Zadanie zostało anulowane');
+      await loadJobs();
+    } catch (error) {
+      console.error('Failed to cancel job:', error);
+      toast.error('Nie udało się anulować zadania');
     }
   };
 
@@ -271,12 +545,55 @@ function OptimizePage() {
         </div>
       </div>
 
+      {/* Error Display */}
+      {lastError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+          <ErrorDisplay
+            error={lastError}
+            onRetry={() => {
+              setLastError(null);
+              // Retry logic based on error type
+              if (lastError.scenario_id) {
+                startOptimization(lastError.scenario_id);
+              }
+            }}
+            onClose={() => setLastError(null)}
+            showRetry={lastError.error_type !== 'PERMISSION_DENIED'}
+          />
+        </div>
+      )}
+
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+        {isLoading && <LoadingOverlay text="Przetwarzanie..." />}
         {activeTab === 'scenarios' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Scenariusze Optymalizacji</h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-gray-900">Scenariusze Optymalizacji</h2>
+                {scenarios.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedScenarios.size === scenarios.length && scenarios.length > 0}
+                        onChange={toggleAllScenarios}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Zaznacz wszystkie
+                    </label>
+                    {selectedScenarios.size > 0 && (
+                      <button
+                        onClick={bulkDeleteScenarios}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+                        disabled={isLoading}
+                      >
+                        Usuń zaznaczone ({selectedScenarios.size})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowCreateScenario(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -294,8 +611,17 @@ function OptimizePage() {
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {scenarios.map((scenario) => (
-                  <div key={scenario.id} className="bg-white rounded-lg shadow-md p-6">
-                    <div className="flex justify-between items-start mb-4">
+                  <div key={scenario.id} className="bg-white rounded-lg shadow-md p-6 relative">
+                    <div className="absolute top-4 left-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedScenarios.has(scenario.id)}
+                        onChange={() => toggleScenarioSelection(scenario.id)}
+                        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="flex justify-between items-start mb-4 ml-8">
                       <h3 className="text-lg font-semibold text-gray-900">{scenario.name}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(scenario.status)}`}>
                         {getStatusText(scenario.status)}
@@ -325,6 +651,16 @@ function OptimizePage() {
                       >
                         Szczegóły
                       </button>
+                      <button
+                        onClick={() => deleteScenario(scenario.id, scenario.name)}
+                        className="bg-red-600 text-white px-3 py-2 rounded text-sm hover:bg-red-700 transition-colors"
+                        disabled={isLoading}
+                        title="Usuń scenariusz"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -342,7 +678,98 @@ function OptimizePage() {
 
         {activeTab === 'jobs' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Zadania Optymalizacji</h2>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-semibold text-gray-900">Zadania Optymalizacji</h2>
+
+                {/* ✅ Rate Limit Indicator */}
+                {(() => {
+                  const activeJobsCount = jobs.filter(job =>
+                    job.status === 'running' || job.status === 'pending' || job.status === 'initializing'
+                  ).length;
+                  const maxAllowed = 5; // MAX_CONCURRENT_JOBS_PER_USER
+
+                  if (activeJobsCount > 0) {
+                    const isNearLimit = activeJobsCount >= maxAllowed - 1;
+                    const isAtLimit = activeJobsCount >= maxAllowed;
+
+                    return (
+                      <span
+                        className={`flex items-center text-sm px-2 py-1 rounded ${
+                          isAtLimit
+                            ? 'bg-red-100 text-red-700'
+                            : isNearLimit
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                        title={`Limit: ${maxAllowed} współbieżnych zadań na użytkownika`}
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        Aktywne: {activeJobsCount}/{maxAllowed}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {jobs.some(job => job.status === 'running' || job.status === 'pending') && autoRefreshEnabled && (
+                  <span className="flex items-center text-sm text-green-600">
+                    <svg className="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Auto-odświeżanie co 5s
+                  </span>
+                )}
+                {jobs.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedJobs.size === jobs.length && jobs.length > 0}
+                        onChange={toggleAllJobs}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Zaznacz wszystkie
+                    </label>
+                    {selectedJobs.size > 0 && (
+                      <button
+                        onClick={bulkDeleteJobs}
+                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 transition-colors"
+                        disabled={isLoading}
+                      >
+                        Usuń zaznaczone ({selectedJobs.size})
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                  className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                    autoRefreshEnabled
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  title={autoRefreshEnabled ? 'Wyłącz auto-odświeżanie' : 'Włącz auto-odświeżanie'}
+                >
+                  {autoRefreshEnabled ? '⏸' : '▶'} Auto
+                </button>
+                <button
+                  onClick={() => loadJobs()}
+                  disabled={isLoading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {isLoading ? 'Odświeżanie...' : 'Odśwież'}
+                </button>
+              </div>
+            </div>
 
             {isLoading ? (
               <div className="text-center py-8">
@@ -354,6 +781,9 @@ function OptimizePage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
+                      <th className="px-4 py-3 text-left w-12">
+                        {/* Checkbox column */}
+                      </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Nazwa
                       </th>
@@ -374,6 +804,14 @@ function OptimizePage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {jobs.map((job) => (
                       <tr key={job.id}>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.has(job.id)}
+                            onChange={() => toggleJobSelection(job.id)}
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {job.job_name || `Zadanie ${job.id.slice(-8)}`}
@@ -387,16 +825,20 @@ function OptimizePage() {
                             {getStatusText(job.status)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-blue-600 h-2 rounded-full"
-                              style={{ width: `${job.progress_percentage}%` }}
-                            ></div>
-                          </div>
-                          <div className="text-sm text-gray-500 mt-1">
-                            {job.progress_percentage.toFixed(1)}%
-                          </div>
+                        <td className="px-6 py-4">
+                          <OptimizationProgressBar
+                            job={{
+                              id: job.id,
+                              job_name: job.job_name,
+                              status: job.status,
+                              current_iteration: job.current_iteration,
+                              progress_percentage: job.progress_percentage,
+                              started_at: job.started_at,
+                              runtime_seconds: job.runtime_seconds,
+                              estimated_completion_at: job.estimated_completion_at
+                            }}
+                            showDetails={true}
+                          />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {job.runtime_seconds
@@ -407,11 +849,26 @@ function OptimizePage() {
                           }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button className="text-blue-600 hover:text-blue-900 mr-3">
-                            Zobacz
-                          </button>
-                          {job.status === 'running' && (
-                            <button className="text-red-600 hover:text-red-900">
+                          {job.status === 'completed' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedJobForResults(job.id);
+                                setActiveTab('results');
+                              }}
+                              className="text-blue-600 hover:text-blue-900 mr-3"
+                            >
+                              Zobacz wyniki
+                            </button>
+                          ) : (
+                            <button className="text-gray-400 mr-3" disabled>
+                              Zobacz
+                            </button>
+                          )}
+                          {(job.status === 'running' || job.status === 'pending') && (
+                            <button
+                              onClick={() => handleCancelJob(job.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
                               Anuluj
                             </button>
                           )}
@@ -434,11 +891,96 @@ function OptimizePage() {
 
         {activeTab === 'results' && (
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Wyniki Optymalizacji</h2>
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">Wyniki będą dostępne po zakończeniu optymalizacji</p>
-              <p className="text-gray-400 mt-2">Uruchom zadanie optymalizacji aby zobaczyć wyniki</p>
-            </div>
+            {selectedJobForResults ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">Wyniki Optymalizacji</h2>
+                  <button
+                    onClick={() => setSelectedJobForResults(null)}
+                    className="text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    ← Powrót do listy zadań
+                  </button>
+                </div>
+
+                <OptimizationResults jobId={selectedJobForResults} />
+
+                <ConvergenceChart jobId={selectedJobForResults} />
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-6">Wyniki Optymalizacji</h2>
+
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="mt-2 text-gray-600">Ładowanie zadań...</p>
+                  </div>
+                ) : jobs.filter(j => j.status === 'completed').length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500 text-lg">Brak zakończonych optymalizacji</p>
+                    <p className="text-gray-400 mt-2">Uruchom zadanie optymalizacji aby zobaczyć wyniki</p>
+                  </div>
+                ) : (
+                  <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nazwa Zadania
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Ukończono
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Czas Wykonania
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Akcje
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {jobs
+                          .filter(j => j.status === 'completed')
+                          .map((job) => (
+                            <tr key={job.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {job.job_name || `Zadanie ${job.id.slice(-8)}`}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {job.id.slice(-12)}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {job.completed_at
+                                  ? new Date(job.completed_at).toLocaleString('pl-PL')
+                                  : '-'
+                                }
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {job.runtime_seconds
+                                  ? `${Math.round(job.runtime_seconds / 60)} min ${Math.round(job.runtime_seconds % 60)} s`
+                                  : '-'
+                                }
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button
+                                  onClick={() => setSelectedJobForResults(job.id)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  Zobacz wyniki
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -448,6 +990,14 @@ function OptimizePage() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-full overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Nowy Scenariusz Optymalizacji</h3>
+
+            {/* Validation Errors Display */}
+            {validationErrors.length > 0 && (
+              <ValidationErrorAlert
+                errors={validationErrors}
+                onClose={() => setValidationErrors([])}
+              />
+            )}
 
             <div className="space-y-4">
               <div>
@@ -473,19 +1023,34 @@ function OptimizePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Konfiguracja bazowa</label>
-                <select
-                  value={newScenario.base_configuration_id}
-                  onChange={(e) => setNewScenario({...newScenario, base_configuration_id: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  required
-                >
-                  <option value="">Wybierz konfigurację...</option>
-                  {regeneratorConfigs.map((config) => (
-                    <option key={config.id} value={config.id}>
-                      {config.name} ({config.regenerator_type})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={newScenario.base_configuration_id}
+                    onChange={(e) => setNewScenario({...newScenario, base_configuration_id: e.target.value})}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+                    required
+                  >
+                    <option value="">Wybierz konfigurację...</option>
+                    {regeneratorConfigs.map((config) => (
+                      <option key={config.id} value={config.id}>
+                        {config.name} ({config.regenerator_type})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateBaseConfig(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                    title="Utwórz nową konfigurację bazową"
+                  >
+                    + Nowa
+                  </button>
+                </div>
+                {regeneratorConfigs.length === 0 && !newScenario.base_configuration_id && (
+                  <p className="mt-2 text-sm text-amber-600">
+                    ⚠️ Brak dostępnych konfiguracji. Utwórz nową konfigurację bazową.
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -574,6 +1139,195 @@ function OptimizePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Create Base Configuration Modal */}
+      {showCreateBaseConfig && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Nowa Konfiguracja Bazowa</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nazwa konfiguracji <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newBaseConfig.name}
+                  onChange={(e) => setNewBaseConfig({...newBaseConfig, name: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  placeholder="np. Regenerator Crown Standard"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Typ regeneratora
+                </label>
+                <select
+                  value={newBaseConfig.regenerator_type}
+                  onChange={(e) => setNewBaseConfig({...newBaseConfig, regenerator_type: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                >
+                  <option value="crown">Crown (koronowy)</option>
+                  <option value="end-port">End-Port (boczny)</option>
+                  <option value="cross-fired">Cross-Fired (poprzeczny)</option>
+                </select>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Geometria</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Długość (m)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newBaseConfig.geometry_config.length}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        geometry_config: {...newBaseConfig.geometry_config, length: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Szerokość (m)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newBaseConfig.geometry_config.width}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        geometry_config: {...newBaseConfig.geometry_config, width: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Wysokość (m)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newBaseConfig.geometry_config.height}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        geometry_config: {...newBaseConfig.geometry_config, height: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Grubość ściany (m)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newBaseConfig.geometry_config.wall_thickness}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        geometry_config: {...newBaseConfig.geometry_config, wall_thickness: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Parametry termiczne</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Temp. wlot gazu (°C)</label>
+                    <input
+                      type="number"
+                      value={newBaseConfig.thermal_config.gas_temp_inlet}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        thermal_config: {...newBaseConfig.thermal_config, gas_temp_inlet: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Temp. wylot gazu (°C)</label>
+                    <input
+                      type="number"
+                      value={newBaseConfig.thermal_config.gas_temp_outlet}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        thermal_config: {...newBaseConfig.thermal_config, gas_temp_outlet: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Parametry przepływu</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Przepływ masowy (kg/s)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={newBaseConfig.flow_config.mass_flow_rate}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        flow_config: {...newBaseConfig.flow_config, mass_flow_rate: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Czas cyklu (s)</label>
+                    <input
+                      type="number"
+                      value={newBaseConfig.flow_config.cycle_time}
+                      onChange={(e) => setNewBaseConfig({
+                        ...newBaseConfig,
+                        flow_config: {...newBaseConfig.flow_config, cycle_time: parseFloat(e.target.value)}
+                      })}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={createBaseConfiguration}
+                disabled={isLoading || !newBaseConfig.name.trim()}
+                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 font-medium"
+              >
+                {isLoading ? 'Tworzenie...' : 'Utwórz Konfigurację'}
+              </button>
+              <button
+                onClick={() => setShowCreateBaseConfig(false)}
+                className="flex-1 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                disabled={isLoading}
+              >
+                Anuluj
+              </button>
+            </div>
+
+            <p className="mt-4 text-xs text-gray-500">
+              ℹ️ Tworzy prostą konfigurację bazową z domyślnymi wartościami materiałów.
+              Dla zaawansowanej konfiguracji użyj kreatora w zakładce "Konfigurator".
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Scenario Details Modal */}
+      {selectedScenario && (
+        <ScenarioDetailsModal
+          scenario={selectedScenario}
+          onClose={() => setSelectedScenario(null)}
+        />
       )}
     </div>
   );

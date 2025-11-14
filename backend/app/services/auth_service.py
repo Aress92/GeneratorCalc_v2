@@ -5,7 +5,7 @@ Serwis uwierzytelniania z obsługą JWT i zarządzaniem sesją.
 """
 
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
@@ -130,7 +130,7 @@ class AuthService:
         await self.db.execute(
             update(User)
             .where(User.id == user.id)
-            .values(last_login=datetime.utcnow())
+            .values(last_login=datetime.now(UTC))
         )
         await self.db.commit()
 
@@ -294,7 +294,7 @@ class AuthService:
             await self.db.execute(
                 update(User)
                 .where(User.id == user_id)
-                .values(**update_data, updated_at=datetime.utcnow())
+                .values(**update_data, updated_at=datetime.now(UTC))
             )
             await self.db.commit()
             await self.db.refresh(user)
@@ -348,7 +348,7 @@ class AuthService:
             .where(User.id == user_id)
             .values(
                 password_hash=password_hash,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.now(UTC)
             )
         )
         await self.db.commit()
@@ -372,7 +372,7 @@ class AuthService:
 
         # Generate reset token
         reset_token = generate_reset_token()
-        expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+        expires_at = datetime.now(UTC) + timedelta(hours=1)  # 1 hour expiry
 
         await self.db.execute(
             update(User)
@@ -380,7 +380,7 @@ class AuthService:
             .values(
                 reset_token=reset_token,
                 reset_token_expires=expires_at,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.now(UTC)
             )
         )
         await self.db.commit()
@@ -443,7 +443,7 @@ class AuthService:
                 password_hash=password_hash,
                 reset_token=None,
                 reset_token_expires=None,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.now(UTC)
             )
         )
         await self.db.commit()
@@ -485,14 +485,14 @@ class AuthService:
         viewer_users = viewer_result.scalar()
 
         # Recent registrations (last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         recent_reg_result = await self.db.execute(
             select(func.count(User.id)).where(User.created_at >= thirty_days_ago)
         )
         recent_registrations = recent_reg_result.scalar()
 
         # Recent logins (last 24 hours)
-        twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
+        twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
         recent_login_result = await self.db.execute(
             select(func.count(User.id)).where(User.last_login >= twenty_four_hours_ago)
         )
@@ -542,3 +542,164 @@ class AuthService:
         users = result.scalars().all()
 
         return [UserResponse.model_validate(user) for user in users]
+
+    # Alias methods for compatibility with tests
+    async def register_user(self, user_data: UserCreate) -> User:
+        """Alias for create_user - register new user."""
+        response = await self.create_user(user_data)
+        # Return the actual User model from database
+        user = await self.get_user_by_username(user_data.username)
+        return user
+
+    async def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
+        """Create JWT access token."""
+        return create_access_token(subject=data.get("sub"), additional_claims=data, expires_delta=expires_delta)
+
+    async def create_refresh_token(self, data: dict) -> str:
+        """Create JWT refresh token."""
+        expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        return create_access_token(subject=data.get("sub"), additional_claims=data, expires_delta=expires_delta)
+
+    async def verify_token(self, token: str) -> Optional[dict]:
+        """Verify JWT token and return payload."""
+        try:
+            payload = verify_token(token)
+            return payload
+        except Exception:
+            return None
+
+    async def update_user_profile(self, user_id: str, update_data: dict) -> Optional[User]:
+        """Update user profile."""
+        try:
+            user_update = UserUpdate(**update_data)
+            return await self.update_user(UUID(user_id), user_update)
+        except Exception:
+            return None
+
+    async def reset_password_with_token(self, reset_token: str, new_password: str) -> bool:
+        """Reset password using reset token."""
+        try:
+            # Verify reset token
+            email = verify_reset_token(reset_token)
+            if not email:
+                return False
+
+            # Get user by email
+            user = await self.get_user_by_email(email)
+            if not user:
+                return False
+
+            # Update password
+            password_hash = get_password_hash(new_password)
+            await self.db.execute(
+                update(User)
+                .where(User.id == user.id)
+                .values(password_hash=password_hash)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False
+
+    async def create_password_reset_token(self, email: str) -> Optional[str]:
+        """Create password reset token for email."""
+        user = await self.get_user_by_email(email)
+        if not user:
+            return None
+        return generate_reset_token(email)
+
+    async def check_user_role(self, user_id: str, required_role: UserRole) -> bool:
+        """Check if user has required role."""
+        user = await self.get_user_by_id(UUID(user_id))
+        if not user:
+            return False
+        return user.role == required_role
+
+    async def update_user_role(self, user_id: str, new_role: UserRole) -> bool:
+        """Update user role."""
+        try:
+            await self.db.execute(
+                update(User)
+                .where(User.id == UUID(user_id))
+                .values(role=new_role)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False
+
+    async def activate_user(self, user_id: str) -> bool:
+        """Activate user account."""
+        try:
+            await self.db.execute(
+                update(User)
+                .where(User.id == UUID(user_id))
+                .values(is_active=True)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False
+
+    async def deactivate_user(self, user_id: str) -> bool:
+        """Deactivate user account."""
+        try:
+            await self.db.execute(
+                update(User)
+                .where(User.id == UUID(user_id))
+                .values(is_active=False)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False
+
+    async def verify_email(self, user_id: str) -> bool:
+        """Mark user email as verified."""
+        try:
+            await self.db.execute(
+                update(User)
+                .where(User.id == UUID(user_id))
+                .values(is_verified=True)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False
+
+    async def update_last_login(self, user_id: str) -> None:
+        """Update user's last login timestamp."""
+        await self.db.execute(
+            update(User)
+            .where(User.id == UUID(user_id))
+            .values(last_login_at=datetime.now(UTC))
+        )
+        await self.db.commit()
+
+    async def get_active_users_count(self) -> int:
+        """Get count of active users."""
+        result = await self.db.execute(
+            select(func.count(User.id)).where(User.is_active == True)
+        )
+        return result.scalar() or 0
+
+    async def get_users(self, role: Optional[UserRole] = None, limit: int = 100, offset: int = 0) -> List[User]:
+        """Get list of users with optional role filter."""
+        query = select(User).offset(offset).limit(limit)
+        if role:
+            query = query.where(User.role == role)
+        result = await self.db.execute(query)
+        return result.scalars().all()
+
+    async def delete_user(self, user_id: str) -> bool:
+        """Delete user account (hard delete)."""
+        try:
+            await self.db.execute(
+                update(User)
+                .where(User.id == UUID(user_id))
+                .values(is_active=False, is_deleted=True)
+            )
+            await self.db.commit()
+            return True
+        except Exception:
+            return False

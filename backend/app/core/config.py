@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     MAX_PARALLEL_OPTIMIZATIONS: int = 10
     OPTIMIZATION_CHECKPOINT_INTERVAL: int = 10  # iterations
 
+    # Rate Limiting for Optimization Jobs
+    MAX_CONCURRENT_JOBS_PER_USER: int = 5  # Max concurrent jobs per user
+    MAX_CONCURRENT_JOBS_PER_SCENARIO: int = 1  # Max concurrent jobs per scenario
+
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
