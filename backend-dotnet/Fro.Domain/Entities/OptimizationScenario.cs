@@ -68,6 +68,7 @@ public class OptimizationScenario : BaseEntity
 
 /// <summary>
 /// Optimization job execution record.
+/// Matches Python backend schema for full compatibility.
 /// </summary>
 public class OptimizationJob : BaseEntity
 {
@@ -77,7 +78,17 @@ public class OptimizationJob : BaseEntity
     public Guid ScenarioId { get; set; }
 
     /// <summary>
-    /// Celery/Hangfire job ID (nullable until job is enqueued)
+    /// Owner user ID (for direct user access)
+    /// </summary>
+    public Guid UserId { get; set; }
+
+    /// <summary>
+    /// Job name (optional)
+    /// </summary>
+    public string? JobName { get; set; }
+
+    /// <summary>
+    /// Celery task ID (for Python backend)
     /// </summary>
     public string? CeleryTaskId { get; set; }
 
@@ -85,6 +96,16 @@ public class OptimizationJob : BaseEntity
     /// Hangfire job ID (for .NET backend)
     /// </summary>
     public string? HangfireJobId { get; set; }
+
+    /// <summary>
+    /// Execution configuration snapshot (JSON)
+    /// </summary>
+    public string? ExecutionConfig { get; set; }
+
+    /// <summary>
+    /// Initial design variable values (JSON)
+    /// </summary>
+    public string? InitialValues { get; set; }
 
     /// <summary>
     /// Current status of the optimization job
@@ -102,6 +123,11 @@ public class OptimizationJob : BaseEntity
     public int? CurrentIteration { get; set; }
 
     /// <summary>
+    /// Current number of function evaluations
+    /// </summary>
+    public int? CurrentFunctionEvaluations { get; set; }
+
+    /// <summary>
     /// Current objective function value
     /// </summary>
     public double? CurrentObjectiveValue { get; set; }
@@ -112,9 +138,24 @@ public class OptimizationJob : BaseEntity
     public double? BestObjectiveValue { get; set; }
 
     /// <summary>
+    /// Final objective value (when completed)
+    /// </summary>
+    public double? FinalObjectiveValue { get; set; }
+
+    /// <summary>
     /// Best solution found (JSON)
     /// </summary>
     public string? BestSolution { get; set; }
+
+    /// <summary>
+    /// Convergence achieved flag
+    /// </summary>
+    public bool ConvergenceAchieved { get; set; } = false;
+
+    /// <summary>
+    /// Convergence criteria (JSON)
+    /// </summary>
+    public string? ConvergenceCriteria { get; set; }
 
     /// <summary>
     /// Convergence history (JSON array of objective values)
@@ -136,6 +177,11 @@ public class OptimizationJob : BaseEntity
     /// </summary>
     public string? ErrorTraceback { get; set; }
 
+    /// <summary>
+    /// Warning messages during execution (JSON array)
+    /// </summary>
+    public string? WarningMessages { get; set; }
+
     // Timestamps
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
@@ -146,6 +192,18 @@ public class OptimizationJob : BaseEntity
     /// </summary>
     public double? RuntimeSeconds { get; set; }
 
+    // Resource usage
+    /// <summary>
+    /// Memory usage in MB
+    /// </summary>
+    public double? MemoryUsageMb { get; set; }
+
+    /// <summary>
+    /// CPU usage percentage
+    /// </summary>
+    public double? CpuUsagePercentage { get; set; }
+
     // Navigation properties
     public OptimizationScenario? Scenario { get; set; }
+    public User? User { get; set; }
 }
