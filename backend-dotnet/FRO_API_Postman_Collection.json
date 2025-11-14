@@ -1,0 +1,859 @@
+{
+  "info": {
+    "name": "Forglass Regenerator Optimizer - .NET API",
+    "description": "Complete API collection for testing the .NET backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "config_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "scenario_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:5000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "5000",
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('user_id', jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"email\": \"testuser@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"fullName\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('access_token', jsonData.accessToken);",
+                  "    pm.environment.set('refresh_token', jsonData.refreshToken);",
+                  "    pm.collectionVariables.set('access_token', jsonData.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', jsonData.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('access_token', jsonData.accessToken);",
+                  "    pm.collectionVariables.set('access_token', jsonData.accessToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "me"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('access_token', jsonData.accessToken);",
+                  "    pm.environment.set('refresh_token', jsonData.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "refresh"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"SecurePassword123!\",\n  \"newPassword\": \"NewSecurePassword456!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Auth/change-password",
+              "host": ["{{base_url}}"],
+              "path": ["Auth", "change-password"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Regenerator Configurations",
+      "item": [
+        {
+          "name": "Get All Configurations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Configuration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('config_id', jsonData.id);",
+                  "    pm.collectionVariables.set('config_id', jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Regenerator Config\",\n  \"description\": \"Test configuration for API testing\",\n  \"configurationData\": {\n    \"regeneratorType\": \"checker\",\n    \"height\": 12.5,\n    \"width\": 8.0,\n    \"depth\": 10.0,\n    \"numberOfChambers\": 2,\n    \"operatingTemperature\": 1450,\n    \"flueGasTemperature\": 1350\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Regenerators",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Configuration by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators/{{config_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "{{config_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Configuration",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Regenerator Config\",\n  \"description\": \"Updated description\",\n  \"wizardStep\": 2,\n  \"configurationData\": {\n    \"regeneratorType\": \"checker\",\n    \"height\": 13.0,\n    \"width\": 8.5,\n    \"depth\": 10.5,\n    \"numberOfChambers\": 2,\n    \"operatingTemperature\": 1500,\n    \"flueGasTemperature\": 1400\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Regenerators/{{config_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "{{config_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Validate Configuration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators/{{config_id}}/validate",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "{{config_id}}", "validate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Configuration",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators/{{config_id}}/complete",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "{{config_id}}", "complete"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "statistics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Configuration",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Regenerators/{{config_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Regenerators", "{{config_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Optimization",
+      "item": [
+        {
+          "name": "Get All Scenarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/scenarios?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "scenarios"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Scenario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('scenario_id', jsonData.id);",
+                  "    pm.collectionVariables.set('scenario_id', jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"configurationId\": \"{{config_id}}\",\n  \"name\": \"Fuel Efficiency Optimization\",\n  \"description\": \"Optimize for minimum fuel consumption\",\n  \"objectiveType\": \"fuel_efficiency\",\n  \"constraints\": {\n    \"maxPressureDrop\": 500,\n    \"minThermalEfficiency\": 0.85,\n    \"maxMaterialCost\": 50000\n  },\n  \"bounds\": {\n    \"checkerHeightMin\": 10.0,\n    \"checkerHeightMax\": 15.0,\n    \"numberOfLayersMin\": 20,\n    \"numberOfLayersMax\": 40\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Optimization/scenarios",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "scenarios"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Scenario by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/scenarios/{{scenario_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "scenarios", "{{scenario_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Start Optimization Job",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('job_id', jsonData.id);",
+                  "    pm.collectionVariables.set('job_id', jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scenarioId\": \"{{scenario_id}}\",\n  \"maxIterations\": 100,\n  \"convergenceTolerance\": 0.001,\n  \"priority\": \"normal\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs/start",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs", "start"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs/{{job_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs", "{{job_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job Progress",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs/{{job_id}}/progress",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs", "{{job_id}}", "progress"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Jobs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs?page=1&pageSize=10",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Job",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs/{{job_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs", "{{job_id}}", "cancel"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job Result",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Optimization/jobs/{{job_id}}/result",
+              "host": ["{{base_url}}"],
+              "path": ["Optimization", "jobs", "{{job_id}}", "result"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users (Admin)",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["Users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.environment.set('user_id', jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"engineer1\",\n  \"email\": \"engineer1@example.com\",\n  \"password\": \"EngineerPass123!\",\n  \"fullName\": \"Engineer One\",\n  \"role\": \"ENGINEER\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Users",
+              "host": ["{{base_url}}"],
+              "path": ["Users"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"engineer1.updated@example.com\",\n  \"fullName\": \"Engineer One Updated\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}/role",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}", "role"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}", "verify"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activate User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}/activate",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}", "activate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deactivate User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}/deactivate",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}", "deactivate"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/statistics",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "statistics"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["Users", "{{user_id}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Materials",
+      "item": [
+        {
+          "name": "Get All Materials",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/Materials?page=1&pageSize=20",
+              "host": ["{{base_url}}"],
+              "path": ["Materials"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Materials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"minTemperature\": 1400,\n  \"maxTemperature\": 1600,\n  \"materialType\": \"refractory\",\n  \"maxDensity\": 3000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/Materials/search",
+              "host": ["{{base_url}}"],
+              "path": ["Materials", "search"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

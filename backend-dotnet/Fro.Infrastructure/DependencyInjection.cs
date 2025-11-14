@@ -3,6 +3,7 @@ using Fro.Application.Interfaces.Repositories;
 using Fro.Application.Interfaces.Security;
 using Fro.Infrastructure.Repositories;
 using Fro.Infrastructure.Security;
+using Fro.Infrastructure.Data;
 
 namespace Fro.Infrastructure;
 
@@ -26,6 +27,9 @@ public static class DependencyInjection
         // Register security services
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+        // Register database seeder
+        services.AddScoped<DatabaseSeeder>();
 
         return services;
     }

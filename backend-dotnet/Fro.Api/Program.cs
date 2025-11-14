@@ -38,7 +38,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddInfrastructure();
 
 // Register Application services (Business logic)
-builder.Services.AddApplication();
+builder.Services.AddApplication(configuration);
 
 // Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
 try
@@ -245,6 +245,17 @@ if (app.Environment.IsDevelopment())
             else
             {
                 Console.WriteLine("✓ Database is up to date (no pending migrations)");
+            }
+
+            // Seed database if empty (development only)
+            try
+            {
+                var seeder = scope.ServiceProvider.GetRequiredService<Fro.Infrastructure.Data.DatabaseSeeder>();
+                await seeder.SeedAsync();
+            }
+            catch (Exception seedEx)
+            {
+                Console.WriteLine($"⚠ Warning: Database seeding failed: {seedEx.Message}");
             }
         }
         else
