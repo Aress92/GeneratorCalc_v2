@@ -23,15 +23,16 @@ public static class DependencyInjection
         services.AddScoped<IRegeneratorConfigurationService, RegeneratorConfigurationService>();
         services.AddScoped<IOptimizationService, OptimizationService>();
 
-        // Register Optimizer HTTP client
-        var optimizerBaseUrl = configuration["OptimizerService:BaseUrl"] ?? "http://localhost:8001";
-        var timeoutSeconds = configuration.GetValue<int>("OptimizerService:TimeoutSeconds", 300);
+        // Register Python Optimizer HTTP client
+        var optimizerBaseUrl = configuration["OptimizerService:BaseUrl"] ?? "http://localhost:7000";
+        var timeoutSeconds = configuration.GetValue<int>("OptimizerService:TimeoutSeconds", 600); // 10 minutes for optimization
 
         services.AddHttpClient<OptimizerHttpClient>()
             .ConfigureHttpClient(client =>
             {
                 client.BaseAddress = new Uri(optimizerBaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
         services.AddScoped(sp =>

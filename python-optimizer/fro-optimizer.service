@@ -1,0 +1,26 @@
+[Unit]
+Description=FRO SLSQP Optimizer Microservice
+After=network.target
+
+[Service]
+Type=simple
+User=fro
+Group=fro
+WorkingDirectory=/opt/fro/python-optimizer
+Environment="PATH=/opt/fro/python-optimizer/venv/bin"
+ExecStart=/opt/fro/python-optimizer/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 7000 --workers 4
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fro-optimizer
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/fro/python-optimizer
+
+[Install]
+WantedBy=multi-user.target

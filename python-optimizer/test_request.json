@@ -1,0 +1,35 @@
+{
+  "configuration": {
+    "geometry_config": {
+      "length": 10.0,
+      "width": 8.0
+    },
+    "thermal_config": {
+      "gas_temp_inlet": 1600,
+      "gas_temp_outlet": 600
+    },
+    "flow_config": {
+      "mass_flow_rate": 50,
+      "cycle_time": 1200
+    }
+  },
+  "design_variables": {
+    "checker_height": {},
+    "checker_spacing": {},
+    "wall_thickness": {}
+  },
+  "bounds": {
+    "checker_height": {"min": 0.3, "max": 2.0},
+    "checker_spacing": {"min": 0.05, "max": 0.3},
+    "wall_thickness": {"min": 0.2, "max": 0.8}
+  },
+  "initial_values": {
+    "checker_height": 0.5,
+    "checker_spacing": 0.1,
+    "wall_thickness": 0.3
+  },
+  "objective": "maximize_efficiency",
+  "algorithm": "SLSQP",
+  "max_iterations": 20,
+  "tolerance": 1e-6
+}

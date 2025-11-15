@@ -42,50 +42,114 @@ public class OptimizerHttpClient
     }
 
     /// <summary>
-    /// Run SLSQP optimization via Python microservice.
+    /// Run SLSQP optimization via Python microservice with retry logic.
     /// </summary>
     public async Task<OptimizerResult> OptimizeAsync(OptimizerRequest request)
     {
-        try
+        const int maxRetries = 3;
+        var retryDelays = new[] { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(4) };
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            _logger.LogInformation("Sending optimization request to Python service: {BaseUrl}/api/v1/optimize", _baseUrl);
-
-            var response = await _httpClient.PostAsJsonAsync("/api/v1/optimize", request);
-
-            if (!response.IsSuccessStatusCode)
+            try
             {
+                _logger.LogInformation("Sending optimization request to Python service (attempt {Attempt}/{MaxAttempts}): {BaseUrl}/optimize",
+                    attempt + 1, maxRetries + 1, _baseUrl);
+
+                // Use /optimize endpoint (new Python microservice)
+                var response = await _httpClient.PostAsJsonAsync("/optimize", request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<OptimizerResult>();
+                    if (result == null)
+                    {
+                        throw new InvalidOperationException("Failed to deserialize optimizer response");
+                    }
+
+                    _logger.LogInformation("Optimization completed: Success={Success}, Iterations={Iterations}, Objective={Objective}",
+                        result.Success, result.Iterations, result.ObjectiveValue);
+
+                    return result;
+                }
+
+                // Handle error responses
+                var statusCode = (int)response.StatusCode;
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Optimizer service returned error: {StatusCode} - {Error}",
-                    response.StatusCode, errorContent);
-                throw new HttpRequestException($"Optimizer service error: {response.StatusCode} - {errorContent}");
-            }
 
-            var result = await response.Content.ReadFromJsonAsync<OptimizerResult>();
-            if (result == null)
+                if (statusCode == 422)
+                {
+                    // Validation error - don't retry
+                    _logger.LogError("Validation error from optimizer service: {Error}", errorContent);
+                    throw new InvalidOperationException($"Validation error: {errorContent}");
+                }
+
+                if (statusCode == 503)
+                {
+                    // Service unavailable - retry
+                    _logger.LogWarning("Optimizer service unavailable (503) on attempt {Attempt}", attempt + 1);
+
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(retryDelays[attempt]);
+                        continue;
+                    }
+
+                    throw new HttpRequestException("Optimizer service unavailable after retries");
+                }
+
+                if (statusCode >= 500)
+                {
+                    // Server error - retry
+                    _logger.LogWarning("Server error from optimizer service (attempt {Attempt}): {StatusCode} - {Error}",
+                        attempt + 1, statusCode, errorContent);
+
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(retryDelays[attempt]);
+                        continue;
+                    }
+
+                    throw new HttpRequestException($"Optimizer service error: {statusCode} - {errorContent}");
+                }
+
+                // Other errors
+                _logger.LogError("Unexpected response from optimizer service: {StatusCode} - {Error}", statusCode, errorContent);
+                throw new HttpRequestException($"Unexpected response: {statusCode}");
+            }
+            catch (HttpRequestException) when (attempt < maxRetries)
             {
-                throw new InvalidOperationException("Failed to deserialize optimizer response");
+                // Network error - retry
+                _logger.LogWarning("Network error on attempt {Attempt}, retrying...", attempt + 1);
+                await Task.Delay(retryDelays[attempt]);
+                continue;
             }
+            catch (TaskCanceledException) when (attempt < maxRetries)
+            {
+                // Timeout - retry
+                _logger.LogWarning("Timeout on attempt {Attempt}, retrying...", attempt + 1);
+                await Task.Delay(retryDelays[attempt]);
+                continue;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "HTTP error communicating with optimizer service at {Url}", _baseUrl);
+                throw new InvalidOperationException($"Failed to communicate with optimizer service: {ex.Message}", ex);
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogError(ex, "Optimization request timed out");
+                throw new TimeoutException("Optimization request timed out. Consider increasing timeout or max_iterations.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during optimization");
+                throw;
+            }
+        }
 
-            _logger.LogInformation("Optimization completed: Success={Success}, Iterations={Iterations}, Time={Time}s",
-                result.Success, result.Iterations, result.ComputationTimeSeconds);
-
-            return result;
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogError(ex, "HTTP error communicating with optimizer service at {Url}", _baseUrl);
-            throw new InvalidOperationException($"Failed to communicate with optimizer service: {ex.Message}", ex);
-        }
-        catch (TaskCanceledException ex)
-        {
-            _logger.LogError(ex, "Optimization request timed out");
-            throw new TimeoutException("Optimization request timed out. Consider increasing timeout or max_iterations.", ex);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during optimization");
-            throw;
-        }
+        // Should never reach here, but just in case
+        throw new HttpRequestException("Failed to communicate with optimizer after all retries");
     }
 
     /// <summary>
