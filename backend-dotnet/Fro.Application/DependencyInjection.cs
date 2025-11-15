@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Fro.Application.Interfaces;
 using Fro.Application.Interfaces.Services;
 using Fro.Application.Services;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IRegeneratorConfigurationService, RegeneratorConfigurationService>();
         services.AddScoped<IOptimizationService, OptimizationService>();
+        services.AddScoped<IMaterialsService, MaterialsService>();
 
         // Register Python Optimizer HTTP client
         var optimizerBaseUrl = configuration["OptimizerService:BaseUrl"] ?? "http://localhost:7000";

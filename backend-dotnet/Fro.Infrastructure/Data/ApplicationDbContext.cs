@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigurationTemplate> ConfigurationTemplates => Set<ConfigurationTemplate>();
     public DbSet<OptimizationScenario> OptimizationScenarios => Set<OptimizationScenario>();
     public DbSet<OptimizationJob> OptimizationJobs => Set<OptimizationJob>();
+    public DbSet<Material> Materials => Set<Material>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -418,6 +419,153 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("DATETIME")
                 .HasColumnName("created_at");
+        });
+
+        // Configure Material entity
+        modelBuilder.Entity<Material>(entity =>
+        {
+            entity.ToTable("materials");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.ToString(),
+                    v => Guid.Parse(v));
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("name");
+
+            entity.HasIndex(e => e.Name).IsUnique();
+
+            entity.Property(e => e.Description)
+                .HasColumnType("TEXT")
+                .HasColumnName("description");
+
+            entity.Property(e => e.Manufacturer)
+                .HasMaxLength(255)
+                .HasColumnName("manufacturer");
+
+            entity.Property(e => e.MaterialCode)
+                .HasMaxLength(100)
+                .HasColumnName("material_code");
+
+            entity.Property(e => e.MaterialType)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("material_type");
+
+            entity.Property(e => e.Category)
+                .HasMaxLength(100)
+                .HasColumnName("category");
+
+            entity.Property(e => e.Application)
+                .HasMaxLength(100)
+                .HasColumnName("application");
+
+            entity.Property(e => e.Density)
+                .HasColumnName("density");
+
+            entity.Property(e => e.ThermalConductivity)
+                .HasColumnName("thermal_conductivity");
+
+            entity.Property(e => e.SpecificHeat)
+                .HasColumnName("specific_heat");
+
+            entity.Property(e => e.MaxTemperature)
+                .HasColumnName("max_temperature");
+
+            entity.Property(e => e.Porosity)
+                .HasColumnName("porosity");
+
+            entity.Property(e => e.SurfaceArea)
+                .HasColumnName("surface_area");
+
+            entity.Property(e => e.Properties)
+                .IsRequired()
+                .HasColumnType("JSON")
+                .HasColumnName("properties");
+
+            entity.Property(e => e.ChemicalComposition)
+                .HasColumnType("JSON")
+                .HasColumnName("chemical_composition");
+
+            entity.Property(e => e.CostPerUnit)
+                .HasColumnName("cost_per_unit");
+
+            entity.Property(e => e.CostUnit)
+                .HasMaxLength(20)
+                .HasColumnName("cost_unit");
+
+            entity.Property(e => e.Availability)
+                .HasMaxLength(50)
+                .HasColumnName("availability");
+
+            entity.Property(e => e.Version)
+                .HasMaxLength(20)
+                .HasColumnName("version");
+
+            entity.Property(e => e.SupersededById)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("superseded_by_id");
+
+            entity.Property(e => e.ApprovalStatus)
+                .HasMaxLength(20)
+                .HasColumnName("approval_status");
+
+            entity.Property(e => e.ApprovedByUserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("approved_by_user_id");
+
+            entity.Property(e => e.ApprovedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("approved_at");
+
+            entity.Property(e => e.IsActive)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.IsStandard)
+                .HasColumnName("is_standard");
+
+            entity.Property(e => e.CreatedByUserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("created_by_user_id");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("updated_at");
+
+            // Foreign keys
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ApprovedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SupersededBy)
+                .WithMany()
+                .HasForeignKey(e => e.SupersededById)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

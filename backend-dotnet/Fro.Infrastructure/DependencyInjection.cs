@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IRegeneratorConfigurationRepository, RegeneratorConfigurationRepository>();
         services.AddScoped<IOptimizationScenarioRepository, OptimizationScenarioRepository>();
         services.AddScoped<IOptimizationJobRepository, OptimizationJobRepository>();
+        services.AddScoped<IMaterialsRepository, MaterialsRepository>();
 
         // Register security services
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
