@@ -38,11 +38,11 @@ public class DatabaseSeeder
             // Seed users
             await SeedUsersAsync();
 
-            // Seed materials (optional - development only)
-            // await SeedMaterialsAsync();
+            // Seed configuration templates
+            await SeedConfigurationTemplatesAsync();
 
-            // Seed configuration templates (optional)
-            // await SeedConfigurationTemplatesAsync();
+            // Seed test configuration (optional - development only)
+            await SeedTestConfigurationAsync();
 
             await _context.SaveChangesAsync();
 
@@ -122,93 +122,52 @@ public class DatabaseSeeder
     }
 
     /// <summary>
-    /// Seed materials library (optional - development/testing).
+    /// Seed test configuration for development (optional).
     /// </summary>
-    private async Task SeedMaterialsAsync()
+    private async Task SeedTestConfigurationAsync()
     {
-        if (await _context.Materials.AnyAsync())
+        if (await _context.RegeneratorConfigurations.AnyAsync())
         {
-            _logger.LogInformation("Materials already exist, skipping material seeding");
+            _logger.LogInformation("Configurations already exist, skipping test configuration seeding");
             return;
         }
 
-        _logger.LogInformation("Seeding materials...");
+        _logger.LogInformation("Seeding test configuration...");
 
-        var materials = new List<Material>
+        var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Role == UserRole.ADMIN);
+
+        if (adminUser == null)
         {
-            new Material
-            {
-                Id = Guid.NewGuid(),
-                Name = "Silica Brick Grade A",
-                Description = "High-quality silica brick for regenerator crowns",
-                Manufacturer = "Forglass Materials",
-                MaterialCode = "SIL-A-001",
-                MaterialType = "refractory",
-                Category = "high_temperature",
-                Application = "crown",
-                Density = 2300,
-                ThermalConductivity = 2.5,
-                SpecificHeat = 950,
-                MaxTemperature = 1650,
-                MinTemperature = 200,
-                Properties = "{}",
-                IsActive = true,
-                IsStandard = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            },
+            _logger.LogWarning("Admin user not found, skipping test configuration seeding");
+            return;
+        }
 
-            new Material
-            {
-                Id = Guid.NewGuid(),
-                Name = "Mullite Checker Brick",
-                Description = "Standard mullite checker brick",
-                Manufacturer = "Forglass Materials",
-                MaterialCode = "MUL-C-001",
-                MaterialType = "checker",
-                Category = "medium_temperature",
-                Application = "checker_packing",
-                Density = 2100,
-                ThermalConductivity = 2.0,
-                SpecificHeat = 900,
-                MaxTemperature = 1500,
-                MinTemperature = 200,
-                Properties = "{}",
-                IsActive = true,
-                IsStandard = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            },
-
-            new Material
-            {
-                Id = Guid.NewGuid(),
-                Name = "Ceramic Fiber Insulation",
-                Description = "Lightweight ceramic fiber for insulation",
-                Manufacturer = "Forglass Materials",
-                MaterialCode = "INS-CF-001",
-                MaterialType = "insulation",
-                Category = "insulation",
-                Application = "wall_insulation",
-                Density = 128,
-                ThermalConductivity = 0.12,
-                SpecificHeat = 1000,
-                MaxTemperature = 1260,
-                MinTemperature = 0,
-                Properties = "{}",
-                IsActive = true,
-                IsStandard = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            }
+        var testConfig = new RegeneratorConfiguration
+        {
+            Id = Guid.NewGuid(),
+            UserId = adminUser.Id,
+            Name = "Test Regenerator Configuration",
+            Description = "Sample configuration for testing purposes",
+            RegeneratorType = RegeneratorType.EndPort,
+            Status = ConfigurationStatus.Draft,
+            CurrentStep = 1,
+            TotalSteps = 8,
+            CompletedSteps = new List<int> { 1 },
+            GeometryConfig = @"{""length"": 10.0, ""width"": 8.0, ""height"": 12.0}",
+            ThermalConfig = @"{""gasTempInlet"": 1600, ""gasTempOutlet"": 600}",
+            FlowConfig = @"{""massFlowRate"": 50, ""cycleTime"": 1200}",
+            IsValidated = false,
+            IsTemplate = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
-        await _context.Materials.AddRangeAsync(materials);
-        _logger.LogInformation($"Seeded {materials.Count} materials");
+        await _context.RegeneratorConfigurations.AddAsync(testConfig);
+        _logger.LogInformation("Seeded 1 test configuration");
     }
 
     /// <summary>
-    /// Seed configuration templates (optional).
+    /// Seed configuration templates.
     /// </summary>
     private async Task SeedConfigurationTemplatesAsync()
     {
@@ -220,14 +179,6 @@ public class DatabaseSeeder
 
         _logger.LogInformation("Seeding configuration templates...");
 
-        var adminUser = await _context.Users.FirstOrDefaultAsync(u => u.Role == UserRole.ADMIN);
-
-        if (adminUser == null)
-        {
-            _logger.LogWarning("Admin user not found, skipping template seeding");
-            return;
-        }
-
         var templates = new List<ConfigurationTemplate>
         {
             new ConfigurationTemplate
@@ -236,29 +187,8 @@ public class DatabaseSeeder
                 Name = "Standard End-Port Regenerator",
                 Description = "Standard configuration for end-port regenerators",
                 RegeneratorType = RegeneratorType.EndPort,
-                Category = "standard",
-                DefaultGeometryConfig = @"{
-                    ""length"": 10.0,
-                    ""width"": 8.0,
-                    ""height"": 12.0,
-                    ""checkerHeight"": 0.5,
-                    ""checkerSpacing"": 0.1
-                }",
-                DefaultThermalConfig = @"{
-                    ""gasTempInlet"": 1600,
-                    ""gasTempOutlet"": 600,
-                    ""operatingTemperature"": 1450
-                }",
-                DefaultFlowConfig = @"{
-                    ""massFlowRate"": 50,
-                    ""cycleTime"": 1200
-                }",
-                UsageCount = 0,
                 IsActive = true,
-                IsPublic = true,
-                CreatedByUserId = adminUser.Id,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow
             },
 
             new ConfigurationTemplate
@@ -267,29 +197,18 @@ public class DatabaseSeeder
                 Name = "High-Temperature Crown Regenerator",
                 Description = "Template for high-temperature crown regenerators",
                 RegeneratorType = RegeneratorType.Crown,
-                Category = "high_temperature",
-                DefaultGeometryConfig = @"{
-                    ""length"": 12.0,
-                    ""width"": 10.0,
-                    ""height"": 15.0,
-                    ""checkerHeight"": 0.6,
-                    ""checkerSpacing"": 0.12
-                }",
-                DefaultThermalConfig = @"{
-                    ""gasTempInlet"": 1700,
-                    ""gasTempOutlet"": 700,
-                    ""operatingTemperature"": 1550
-                }",
-                DefaultFlowConfig = @"{
-                    ""massFlowRate"": 60,
-                    ""cycleTime"": 1800
-                }",
-                UsageCount = 0,
                 IsActive = true,
-                IsPublic = true,
-                CreatedByUserId = adminUser.Id,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow
+            },
+
+            new ConfigurationTemplate
+            {
+                Id = Guid.NewGuid(),
+                Name = "Side-Port Regenerator",
+                Description = "Template for side-port regenerators",
+                RegeneratorType = RegeneratorType.SidePort,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
             }
         };
 

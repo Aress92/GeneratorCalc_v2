@@ -10,21 +10,98 @@
 
 ## Executive Summary
 
-✅ **Schema Compatibility: EXCELLENT (95%)**
+⚠️ **Schema Compatibility: PARTIAL (60%)** - **UPDATED AFTER MIGRATION CREATION (2025-11-15)**
 
-The .NET EF Core entity models are **highly compatible** with the Python SQLAlchemy models. Both backends can share the same MySQL database with minimal migration issues.
+The .NET EF Core migration has **significant compatibility issues** that must be fixed before production use.
+
+**CRITICAL ISSUES FOUND (2025-11-15):**
+- ❌ **BREAKING:** 9 columns in `optimization_scenarios` use PascalCase instead of snake_case
+- ❌ **BREAKING:** 2 columns in `optimization_jobs` use PascalCase instead of snake_case
+- ❌ **BREAKING:** Missing `user_id` foreign key in `optimization_jobs`
+- ❌ **BREAKING:** Enum values use PascalCase (e.g., "Draft") instead of lowercase (e.g., "draft")
+- ❌ **BREAKING:** RegeneratorType enum mismatch (EndPort vs end-port, SidePort vs cross-fired)
+- ⚠️ Missing 8 tables (materials, geometry_components, optimization_results, etc.)
+- ⚠️ Missing 8+ columns in `configuration_templates`
+- ⚠️ Missing 15+ columns in `optimization_jobs`
 
 **Key Findings:**
-- ✅ All core entities match (User, RegeneratorConfiguration, OptimizationScenario, OptimizationJob)
+- ✅ Users table: 100% compatible
 - ✅ UUID/GUID handling compatible (CHAR(36) storage)
-- ✅ Enum types compatible (stored as strings)
 - ✅ JSON columns compatible (Python uses JSON, .NET uses string with manual serialization)
 - ✅ DateTime handling compatible (both use UTC)
 - ✅ BCrypt password hashing compatible
-- ⚠️ Minor differences: .NET entities have fewer columns (simplified for 80% migration milestone)
-- ⚠️ Python has additional tables: OptimizationResult, OptimizationIteration, OptimizationTemplate, Material, GeometryComponent
+- ❌ Column naming conventions NOT followed (PascalCase vs snake_case)
+- ❌ Enum value storage NOT compatible (PascalCase vs lowercase)
+- ⚠️ Python has 8 additional tables not in .NET migration
 
-**Recommendation:** Proceed with EF Core migrations. Both backends can coexist and share the database.
+**Recommendation:** **DO NOT PROCEED** with current migration. Fix critical issues first (see Migration Fix below).
+
+---
+
+## 🚨 CRITICAL: Migration Fix Required
+
+Before applying the InitialCreate migration to a shared database with the Python backend, you **MUST** create a follow-up migration to fix naming inconsistencies.
+
+### Quick Fix: Migration 2 (20251115000001_FixColumnNaming.sql)
+
+```sql
+-- Fix optimization_scenarios column naming (PascalCase → snake_case)
+ALTER TABLE `optimization_scenarios`
+    CHANGE COLUMN `Description` `description` TEXT,
+    CHANGE COLUMN `ScenarioType` `scenario_type` VARCHAR(50),
+    CHANGE COLUMN `Status` `Status` VARCHAR(20) DEFAULT 'active',  -- Keep Status as-is (custom field)
+    CHANGE COLUMN `Objective` `objective` VARCHAR(100),
+    CHANGE COLUMN `ConstraintsConfig` `constraints_config` JSON,
+    CHANGE COLUMN `BoundsConfig` `bounds_config` JSON,
+    CHANGE COLUMN `ObjectiveWeights` `objective_weights` JSON,
+    CHANGE COLUMN `MaxFunctionEvaluations` `max_function_evaluations` INT,
+    CHANGE COLUMN `MaxRuntimeMinutes` `max_runtime_minutes` INT;
+
+-- Fix optimization_jobs column naming
+ALTER TABLE `optimization_jobs`
+    CHANGE COLUMN `BestObjectiveValue` `best_objective_value` DOUBLE,
+    CHANGE COLUMN `UpdatedAt` `updated_at` DATETIME;
+
+-- Add missing user_id to optimization_jobs (CRITICAL)
+ALTER TABLE `optimization_jobs`
+    ADD COLUMN `user_id` CHAR(36) NOT NULL AFTER `scenario_id`,
+    ADD CONSTRAINT `FK_optimization_jobs_users_user_id`
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`Id`) ON DELETE CASCADE;
+
+-- Add missing columns to optimization_scenarios
+ALTER TABLE `optimization_scenarios`
+    ADD COLUMN `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+    ADD COLUMN `is_template` TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Update defaults to match Python
+ALTER TABLE `optimization_scenarios`
+    ALTER COLUMN `max_iterations` SET DEFAULT 1000;  -- Was 100
+
+ALTER TABLE `regenerator_configurations`
+    ALTER COLUMN `total_steps` SET DEFAULT 7;  -- Was 8
+
+-- Update migration history
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('20251115000001_FixColumnNaming', '8.0.2');
+```
+
+### Alternative: Start Fresh with Corrected Migration
+
+If the database is empty (no data yet), **delete** the InitialCreate migration and recreate it with proper naming:
+
+1. **Delete** files:
+   - `Fro.Infrastructure/Data/Migrations/20251115000000_InitialCreate.cs`
+   - `Fro.Infrastructure/Data/Migrations/20251115000000_InitialCreate.sql`
+   - `Fro.Infrastructure/Data/Migrations/ApplicationDbContextModelSnapshot.cs`
+
+2. **Fix** entity configurations to use snake_case column names
+
+3. **Regenerate** migration:
+   ```bash
+   dotnet ef migrations add InitialCreate --project Fro.Infrastructure --startup-project Fro.Api
+   ```
+
+See **MIGRATION_GUIDE.md** for detailed instructions.
 
 ---
 
