@@ -1,19 +1,23 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Fro.Application.Interfaces;
+using Fro.Application.DTOs.Reports;
+using Fro.Application.DTOs.Common;
+using System.Security.Claims;
 
 namespace Fro.Api.Controllers;
 
 /// <summary>
-/// Report generation and management controller (simplified placeholder).
+/// Report generation and management controller.
 /// </summary>
 /// <remarks>
-/// TODO: Implement full reporting service with:
-/// - Report creation and generation (PDF, Excel)
-/// - Dashboard metrics
+/// Simplified implementation. Future enhancements:
+/// - PDF/Excel generation (using QuestPDF, EPPlus)
 /// - Report templates
-/// - Report scheduling
+/// - Report scheduling (using Hangfire)
 /// - Server-Sent Events for progress tracking
-/// This is a placeholder implementation until Phase 4.
+/// - Chart generation
+/// - Email delivery
 /// </remarks>
 [ApiController]
 [Route("api/v1/[controller]")]
@@ -21,10 +25,14 @@ namespace Fro.Api.Controllers;
 [Authorize]
 public class ReportsController : ControllerBase
 {
+    private readonly IReportingService _reportingService;
     private readonly ILogger<ReportsController> _logger;
 
-    public ReportsController(ILogger<ReportsController> logger)
+    public ReportsController(
+        IReportingService reportingService,
+        ILogger<ReportsController> logger)
     {
+        _reportingService = reportingService;
         _logger = logger;
     }
 
@@ -35,31 +43,22 @@ public class ReportsController : ControllerBase
     /// <response code="200">Metrics retrieved successfully</response>
     /// <response code="401">Unauthorized</response>
     [HttpGet("dashboard/metrics")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(DashboardMetricsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult GetDashboardMetrics()
+    public async Task<IActionResult> GetDashboardMetrics(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Dashboard metrics requested - Placeholder implementation");
+        var userId = GetCurrentUserId();
+        _logger.LogInformation("Getting dashboard metrics for user {UserId}", userId);
 
-        // TODO: Implement actual dashboard metrics
-        return Ok(new
-        {
-            message = "Dashboard metrics - To be implemented",
-            note = "This is a placeholder. Full reporting service will be implemented in Phase 4.",
-            metrics = new
-            {
-                totalConfigurations = 0,
-                totalOptimizations = 0,
-                totalReports = 0,
-                recentActivity = new object[] { }
-            }
-        });
+        var metrics = await _reportingService.GetDashboardMetricsAsync(userId, cancellationToken);
+        return Ok(metrics);
     }
 
     /// <summary>
     /// Create new report.
     /// </summary>
     /// <param name="request">Report creation data</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Created report</returns>
     /// <response code="201">Report created successfully</response>
     /// <response code="400">Invalid data</response>
@@ -67,20 +66,19 @@ public class ReportsController : ControllerBase
     /// <response code="403">Forbidden - Engineer or Admin role required</response>
     [HttpPost("reports")]
     [Authorize(Roles = "ENGINEER,ADMIN")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ReportDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public IActionResult CreateReport([FromBody] object request)
+    public async Task<IActionResult> CreateReport(
+        [FromBody] CreateReportDto request,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Create report - Placeholder implementation");
+        var userId = GetCurrentUserId();
+        _logger.LogInformation("Creating report '{Title}' for user {UserId}", request.Title, userId);
 
-        // TODO: Implement actual report creation
-        return StatusCode(501, new
-        {
-            message = "Report creation - To be implemented",
-            note = "This is a placeholder. Full reporting service will be implemented in Phase 4."
-        });
+        var report = await _reportingService.CreateReportAsync(request, userId, cancellationToken);
+        return CreatedAtAction(nameof(GetReport), new { id = report.Id }, report);
     }
 
     /// <summary>
@@ -90,54 +88,53 @@ public class ReportsController : ControllerBase
     /// <param name="limit">Maximum number of results</param>
     /// <param name="reportType">Filter by report type</param>
     /// <param name="status">Filter by status</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of reports</returns>
     /// <response code="200">Reports retrieved successfully</response>
     /// <response code="401">Unauthorized</response>
     [HttpGet("reports")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedResponse<ReportListDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult ListReports(
+    public async Task<IActionResult> ListReports(
         [FromQuery] int skip = 0,
         [FromQuery] int limit = 50,
         [FromQuery] string? reportType = null,
-        [FromQuery] string? status = null)
+        [FromQuery] string? status = null,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("List reports - Placeholder implementation");
+        var userId = GetCurrentUserId();
+        _logger.LogInformation("Listing reports for user {UserId}", userId);
 
-        // TODO: Implement actual reports listing
-        return Ok(new
-        {
-            message = "List reports - To be implemented",
-            note = "This is a placeholder. Full reporting service will be implemented in Phase 4.",
-            reports = new object[] { },
-            totalCount = 0,
-            page = skip / limit + 1,
-            perPage = limit
-        });
+        var result = await _reportingService.ListReportsAsync(
+            userId, limit, skip, reportType, status, cancellationToken);
+        return Ok(result);
     }
 
     /// <summary>
     /// Get report by ID.
     /// </summary>
     /// <param name="id">Report ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Report details</returns>
     /// <response code="200">Report found</response>
     /// <response code="404">Report not found</response>
     /// <response code="401">Unauthorized</response>
     [HttpGet("reports/{id}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult GetReport(Guid id)
+    public async Task<IActionResult> GetReport(Guid id, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Get report {ReportId} - Placeholder implementation", id);
+        var userId = GetCurrentUserId();
+        _logger.LogInformation("Getting report {ReportId} for user {UserId}", id, userId);
 
-        // TODO: Implement actual report retrieval
-        return NotFound(new
+        var report = await _reportingService.GetReportByIdAsync(id, userId, cancellationToken);
+        if (report == null)
         {
-            message = "Report not found - To be implemented",
-            note = "This is a placeholder. Full reporting service will be implemented in Phase 4."
-        });
+            return NotFound(new { message = $"Report with ID {id} not found or you don't have access to it" });
+        }
+
+        return Ok(report);
     }
 
     /// <summary>
@@ -171,6 +168,7 @@ public class ReportsController : ControllerBase
     /// Delete report.
     /// </summary>
     /// <param name="id">Report ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success message</returns>
     /// <response code="200">Report deleted successfully</response>
     /// <response code="404">Report not found</response>
@@ -179,16 +177,24 @@ public class ReportsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public IActionResult DeleteReport(Guid id)
+    public async Task<IActionResult> DeleteReport(Guid id, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Delete report {ReportId} - Placeholder implementation", id);
+        var userId = GetCurrentUserId();
+        _logger.LogInformation("Deleting report {ReportId} for user {UserId}", id, userId);
 
-        // TODO: Implement actual report deletion
-        return StatusCode(501, new
+        try
         {
-            message = "Report deletion - To be implemented",
-            note = "This is a placeholder. Full reporting service will be implemented in Phase 4."
-        });
+            await _reportingService.DeleteReportAsync(id, userId, cancellationToken);
+            return Ok(new { message = "Report deleted successfully" });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = $"Report with ID {id} not found" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
     }
 
     /// <summary>
@@ -399,5 +405,19 @@ public class ReportsController : ControllerBase
             note = "This is a placeholder. Full reporting service will be implemented in Phase 4.",
             schedules = new object[] { }
         });
+    }
+
+    // ========================
+    // Private Helper Methods
+    // ========================
+
+    private Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim))
+        {
+            throw new UnauthorizedAccessException("User ID not found in token");
+        }
+        return Guid.Parse(userIdClaim);
     }
 }

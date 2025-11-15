@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IRegeneratorConfigurationService, RegeneratorConfigurationService>();
         services.AddScoped<IOptimizationService, OptimizationService>();
         services.AddScoped<IMaterialsService, MaterialsService>();
+        services.AddScoped<IReportingService, ReportingService>();
 
         // Register Python Optimizer HTTP client
         var optimizerBaseUrl = configuration["OptimizerService:BaseUrl"] ?? "http://localhost:7000";

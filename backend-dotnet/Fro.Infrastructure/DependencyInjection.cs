@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IOptimizationScenarioRepository, OptimizationScenarioRepository>();
         services.AddScoped<IOptimizationJobRepository, OptimizationJobRepository>();
         services.AddScoped<IMaterialsRepository, MaterialsRepository>();
+        services.AddScoped<IReportsRepository, ReportsRepository>();
 
         // Register security services
         services.AddSingleton<IJwtTokenService, JwtTokenService>();

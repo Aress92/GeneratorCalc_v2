@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<OptimizationScenario> OptimizationScenarios => Set<OptimizationScenario>();
     public DbSet<OptimizationJob> OptimizationJobs => Set<OptimizationJob>();
     public DbSet<Material> Materials => Set<Material>();
+    public DbSet<Report> Reports => Set<Report>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -566,6 +567,114 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.SupersededById)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configure Report entity
+        modelBuilder.Entity<Report>(entity =>
+        {
+            entity.ToTable("reports");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.ToString(),
+                    v => Guid.Parse(v));
+
+            entity.Property(e => e.UserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.ToString(),
+                    v => Guid.Parse(v))
+                .HasColumnName("user_id");
+
+            entity.Property(e => e.Title)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("title");
+
+            entity.Property(e => e.Description)
+                .HasColumnType("TEXT")
+                .HasColumnName("description");
+
+            entity.Property(e => e.ReportType)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("report_type");
+
+            entity.Property(e => e.ReportConfig)
+                .IsRequired()
+                .HasColumnType("JSON")
+                .HasColumnName("report_config");
+
+            entity.Property(e => e.DateRange)
+                .HasColumnType("JSON")
+                .HasColumnName("date_range");
+
+            entity.Property(e => e.Filters)
+                .HasColumnType("JSON")
+                .HasColumnName("filters");
+
+            entity.Property(e => e.Format)
+                .HasMaxLength(20)
+                .HasColumnName("format");
+
+            entity.Property(e => e.Frequency)
+                .HasMaxLength(20)
+                .HasColumnName("frequency");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(20)
+                .HasColumnName("status");
+
+            entity.Property(e => e.Progress)
+                .HasColumnName("progress");
+
+            entity.Property(e => e.GeneratedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("generated_at");
+
+            entity.Property(e => e.GenerationTimeSeconds)
+                .HasColumnName("generation_time_seconds");
+
+            entity.Property(e => e.FileSizeBytes)
+                .HasColumnName("file_size_bytes");
+
+            entity.Property(e => e.FilePath)
+                .HasMaxLength(500)
+                .HasColumnName("file_path");
+
+            entity.Property(e => e.DownloadUrl)
+                .HasMaxLength(500)
+                .HasColumnName("download_url");
+
+            entity.Property(e => e.ExpiresAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("expires_at");
+
+            entity.Property(e => e.ErrorMessage)
+                .HasColumnType("TEXT")
+                .HasColumnName("error_message");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("updated_at");
+
+            // Foreign keys
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.ReportType);
+            entity.HasIndex(e => e.Status);
         });
     }
 }
