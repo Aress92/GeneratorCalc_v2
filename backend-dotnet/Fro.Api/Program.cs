@@ -16,6 +16,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 var configuration = builder.Configuration;
 
+// Check if running in EF design-time mode
+var isEfDesignTime = args.Contains("--ef-design-time") ||
+                      Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
+
 // Configure MySQL with Entity Framework Core
 var connectionString = configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -40,121 +44,129 @@ builder.Services.AddInfrastructure();
 // Register Application services (Business logic)
 builder.Services.AddApplication(configuration);
 
-// Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
-try
+// Skip Redis/Hangfire/JWT/CORS/Swagger if in design-time mode
+if (!isEfDesignTime)
 {
-    var redisConnectionString = configuration.GetConnectionString("Redis");
-    var redis = ConnectionMultiplexer.Connect(redisConnectionString!);
-    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
-
-    Console.WriteLine("✓ Connected to Redis");
-
-    // Configure Hangfire with Redis storage
-    builder.Services.AddHangfire(config =>
+    // Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
+    try
     {
-        config.UseRedisStorage(redis, new Hangfire.Redis.StackExchange.RedisStorageOptions
+        var redisConnectionString = configuration.GetConnectionString("Redis");
+        var redis = ConnectionMultiplexer.Connect(redisConnectionString!);
+        builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+
+        Console.WriteLine("✓ Connected to Redis");
+
+        // Configure Hangfire with Redis storage
+        builder.Services.AddHangfire(config =>
         {
-            Prefix = "hangfire:",
-            InvisibilityTimeout = TimeSpan.FromMinutes(30)
+            config.UseRedisStorage(redis, new Hangfire.Redis.StackExchange.RedisStorageOptions
+            {
+                Prefix = "hangfire:",
+                InvisibilityTimeout = TimeSpan.FromMinutes(30)
+            });
+        });
+
+        builder.Services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
+            options.ServerName = $"FRO-Worker-{Environment.MachineName}";
+        });
+
+        Console.WriteLine("✓ Hangfire configured with Redis storage");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠ Warning: Could not connect to Redis. Hangfire will not be available.");
+        Console.WriteLine($"  Error: {ex.Message}");
+        Console.WriteLine($"  API will start without background job support.");
+    }
+
+    // Configure JWT Authentication
+    var jwtSecret = configuration["JwtSettings:Secret"];
+    var jwtIssuer = configuration["JwtSettings:Issuer"];
+    var jwtAudience = configuration["JwtSettings:Audience"];
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret!)),
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+    builder.Services.AddAuthorization();
+
+    // Configure CORS
+    var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         });
     });
 
-    builder.Services.AddHangfireServer(options =>
+    // Configure Swagger/OpenAPI
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
     {
-        options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
-        options.ServerName = $"FRO-Worker-{Environment.MachineName}";
-    });
-
-    Console.WriteLine("✓ Hangfire configured with Redis storage");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"⚠ Warning: Could not connect to Redis. Hangfire will not be available.");
-    Console.WriteLine($"  Error: {ex.Message}");
-    Console.WriteLine($"  API will start without background job support.");
-}
-
-// Configure JWT Authentication
-var jwtSecret = configuration["JwtSettings:Secret"];
-var jwtIssuer = configuration["JwtSettings:Issuer"];
-var jwtAudience = configuration["JwtSettings:Audience"];
-
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret!)),
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-builder.Services.AddAuthorization();
-
-// Configure CORS
-var allowedOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
-
-// Configure Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Forglass Regenerator Optimizer API",
-        Version = "v1",
-        Description = "API for optimizing glass furnace regenerators to reduce fuel consumption and CO2 emissions.",
-        Contact = new OpenApiContact
+        options.SwaggerDoc("v1", new OpenApiInfo
         {
-            Name = "Forglass",
-            Url = new Uri("https://forglass.com")
-        }
-    });
-
-    // Add JWT authentication to Swagger
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
+            Title = "Forglass Regenerator Optimizer API",
+            Version = "v1",
+            Description = "API for optimizing glass furnace regenerators to reduce fuel consumption and CO2 emissions.",
+            Contact = new OpenApiContact
             {
-                Reference = new OpenApiReference
+                Name = "Forglass",
+                Url = new Uri("https://forglass.com")
+            }
+        });
+
+        // Add JWT authentication to Swagger
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
+            Name = "Authorization",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.ApiKey,
+            Scheme = "Bearer"
+        });
+
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
                 {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+                    Reference = new OpenApiReference
+                    {
+                        Type = ReferenceType.SecurityScheme,
+                        Id = "Bearer"
+                    }
+                },
+                Array.Empty<string>()
+            }
+        });
     });
-});
+}
+else
+{
+    Console.WriteLine("⚠ EF Design-time mode detected - skipping Redis, Hangfire, JWT, CORS, Swagger");
+}
 
 // Add controllers
 builder.Services.AddControllers();
