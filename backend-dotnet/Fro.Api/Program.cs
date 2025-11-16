@@ -161,10 +161,16 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+// Check if running in EF design-time mode (during migrations)
+var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
+
 // Configure the HTTP request pipeline
 
 // Add global exception handler (must be first in pipeline)
-app.UseGlobalExceptionHandler();
+if (!isEfDesignTime)
+{
+    app.UseGlobalExceptionHandler();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -222,7 +228,12 @@ app.MapGet("/health", () => Results.Ok(new
 .WithOpenApi();
 
 // Apply database migrations on startup (development only)
-if (app.Environment.IsDevelopment())
+// Skip if running in design-time (e.g., during 'dotnet ef migrations add')
+var isDesignTime = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == null
+                   && args.Contains("--no-build") == false
+                   && Environment.GetEnvironmentVariable("EF_DESIGN_TIME") != null;
+
+if (app.Environment.IsDevelopment() && !isDesignTime)
 {
     try
     {
@@ -270,5 +281,17 @@ if (app.Environment.IsDevelopment())
         Console.WriteLine("  API will start but may not function correctly");
     }
 }
+else if (isDesignTime)
+{
+    Console.WriteLine("⚠ Running in design-time mode (EF migrations) - skipping auto-migration and seeding");
+}
 
-app.Run();
+// Don't run the app if we're in EF design-time mode
+if (!isEfDesignTime)
+{
+    app.Run();
+}
+else
+{
+    Console.WriteLine("⚠ EF Design-time mode detected - application will not run");
+}

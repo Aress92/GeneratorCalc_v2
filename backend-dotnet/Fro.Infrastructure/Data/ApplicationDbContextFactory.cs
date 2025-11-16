@@ -84,6 +84,10 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
             });
 
         Console.WriteLine($"[Factory] Creating ApplicationDbContext...");
+
+        // Set environment variable to indicate we're in design-time mode
+        Environment.SetEnvironmentVariable("EF_DESIGN_TIME", "true");
+
         var context = new ApplicationDbContext(optionsBuilder.Options);
         Console.WriteLine($"[Factory] Context created successfully!");
         return context;
