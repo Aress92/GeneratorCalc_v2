@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigurationTemplate> ConfigurationTemplates => Set<ConfigurationTemplate>();
     public DbSet<OptimizationScenario> OptimizationScenarios => Set<OptimizationScenario>();
     public DbSet<OptimizationJob> OptimizationJobs => Set<OptimizationJob>();
+    public DbSet<Material> Materials => Set<Material>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -341,9 +342,32 @@ public class ApplicationDbContext : DbContext
                     v => Guid.Parse(v))
                 .HasColumnName("scenario_id");
 
+            entity.Property(e => e.UserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.ToString(),
+                    v => Guid.Parse(v))
+                .HasColumnName("user_id");
+
+            entity.Property(e => e.JobName)
+                .HasMaxLength(255)
+                .HasColumnName("job_name");
+
             entity.Property(e => e.CeleryTaskId)
                 .HasMaxLength(255)
                 .HasColumnName("celery_task_id");
+
+            entity.Property(e => e.HangfireJobId)
+                .HasMaxLength(255)
+                .HasColumnName("hangfire_job_id");
+
+            entity.Property(e => e.ExecutionConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("execution_config");
+
+            entity.Property(e => e.InitialValues)
+                .HasColumnType("JSON")
+                .HasColumnName("initial_values");
 
             entity.Property(e => e.Status)
                 .IsRequired()
@@ -352,14 +376,37 @@ public class ApplicationDbContext : DbContext
                 .HasColumnName("status");
 
             entity.Property(e => e.Progress)
-                .HasColumnName("progress");
+                .HasColumnName("progress_percentage");
 
             entity.Property(e => e.CurrentIteration)
                 .HasColumnName("current_iteration");
 
+            entity.Property(e => e.CurrentFunctionEvaluations)
+                .HasColumnName("current_function_evaluations");
+
+            entity.Property(e => e.CurrentObjectiveValue)
+                .HasColumnName("current_objective_value");
+
+            entity.Property(e => e.BestObjectiveValue)
+                .HasColumnName("best_objective_value");
+
+            entity.Property(e => e.FinalObjectiveValue)
+                .HasColumnName("final_objective_value");
+
             entity.Property(e => e.BestSolution)
                 .HasColumnType("JSON")
                 .HasColumnName("best_solution");
+
+            entity.Property(e => e.ConvergenceAchieved)
+                .HasColumnName("convergence_achieved");
+
+            entity.Property(e => e.ConvergenceCriteria)
+                .HasColumnType("JSON")
+                .HasColumnName("convergence_criteria");
+
+            entity.Property(e => e.ConvergenceHistory)
+                .HasColumnType("JSON")
+                .HasColumnName("convergence_history");
 
             entity.Property(e => e.Results)
                 .HasColumnType("JSON")
@@ -369,9 +416,13 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("TEXT")
                 .HasColumnName("error_message");
 
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("DATETIME")
-                .HasColumnName("created_at");
+            entity.Property(e => e.ErrorTraceback)
+                .HasColumnType("TEXT")
+                .HasColumnName("error_traceback");
+
+            entity.Property(e => e.WarningMessages)
+                .HasColumnType("JSON")
+                .HasColumnName("warning_messages");
 
             entity.Property(e => e.StartedAt)
                 .HasColumnType("DATETIME")
@@ -381,11 +432,37 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("DATETIME")
                 .HasColumnName("completed_at");
 
+            entity.Property(e => e.EstimatedCompletionAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("estimated_completion_at");
+
+            entity.Property(e => e.RuntimeSeconds)
+                .HasColumnName("runtime_seconds");
+
+            entity.Property(e => e.MemoryUsageMb)
+                .HasColumnName("memory_usage_mb");
+
+            entity.Property(e => e.CpuUsagePercentage)
+                .HasColumnName("cpu_usage_percentage");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("updated_at");
+
             // Relationships
             entity.HasOne(e => e.Scenario)
                 .WithMany(s => s.OptimizationJobs)
                 .HasForeignKey(e => e.ScenarioId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Configure ConfigurationTemplate entity
@@ -406,18 +483,230 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("name");
 
+            entity.Property(e => e.Description)
+                .HasColumnType("TEXT")
+                .HasColumnName("description");
+
             entity.Property(e => e.RegeneratorType)
                 .IsRequired()
                 .HasMaxLength(50)
                 .HasConversion<string>()
                 .HasColumnName("regenerator_type");
 
+            entity.Property(e => e.Category)
+                .HasMaxLength(100)
+                .HasColumnName("category");
+
+            // Python-style JSON columns
+            entity.Property(e => e.TemplateConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("template_config");
+
+            entity.Property(e => e.DefaultValues)
+                .HasColumnType("JSON")
+                .HasColumnName("default_values");
+
+            entity.Property(e => e.RequiredFields)
+                .HasColumnType("JSON")
+                .HasColumnName("required_fields");
+
+            // .NET-style detailed JSON columns (optional, for compatibility)
+            entity.Property(e => e.DefaultGeometryConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("default_geometry_config");
+
+            entity.Property(e => e.DefaultMaterialsConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("default_materials_config");
+
+            entity.Property(e => e.DefaultThermalConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("default_thermal_config");
+
+            entity.Property(e => e.DefaultFlowConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("default_flow_config");
+
+            entity.Property(e => e.DefaultConstraintsConfig)
+                .HasColumnType("JSON")
+                .HasColumnName("default_constraints_config");
+
             entity.Property(e => e.IsActive)
                 .HasColumnName("is_active");
+
+            entity.Property(e => e.IsPublic)
+                .HasColumnName("is_public");
+
+            entity.Property(e => e.UsageCount)
+                .HasColumnName("usage_count");
+
+            entity.Property(e => e.CreatedByUserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("created_by_user_id");
 
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("DATETIME")
                 .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("updated_at");
+
+            // Relationships
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configure Material entity
+        modelBuilder.Entity<Material>(entity =>
+        {
+            entity.ToTable("materials");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.ToString(),
+                    v => Guid.Parse(v));
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("name");
+
+            entity.HasIndex(e => e.Name).IsUnique();
+
+            entity.Property(e => e.Description)
+                .HasColumnType("TEXT")
+                .HasColumnName("description");
+
+            entity.Property(e => e.Manufacturer)
+                .HasMaxLength(255)
+                .HasColumnName("manufacturer");
+
+            entity.Property(e => e.MaterialCode)
+                .HasMaxLength(100)
+                .HasColumnName("material_code");
+
+            entity.Property(e => e.MaterialType)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("material_type");
+
+            entity.Property(e => e.Category)
+                .HasMaxLength(100)
+                .HasColumnName("category");
+
+            entity.Property(e => e.Application)
+                .HasMaxLength(100)
+                .HasColumnName("application");
+
+            entity.Property(e => e.Properties)
+                .IsRequired()
+                .HasColumnType("JSON")
+                .HasColumnName("properties");
+
+            entity.Property(e => e.Density)
+                .HasColumnName("density");
+
+            entity.Property(e => e.ThermalConductivity)
+                .HasColumnName("thermal_conductivity");
+
+            entity.Property(e => e.SpecificHeat)
+                .HasColumnName("specific_heat");
+
+            entity.Property(e => e.MaxTemperature)
+                .HasColumnName("max_temperature");
+
+            entity.Property(e => e.Porosity)
+                .HasColumnName("porosity");
+
+            entity.Property(e => e.SurfaceArea)
+                .HasColumnName("surface_area");
+
+            entity.Property(e => e.ChemicalComposition)
+                .HasColumnType("JSON")
+                .HasColumnName("chemical_composition");
+
+            entity.Property(e => e.CostPerUnit)
+                .HasColumnName("cost_per_unit");
+
+            entity.Property(e => e.CostUnit)
+                .HasMaxLength(20)
+                .HasColumnName("cost_unit");
+
+            entity.Property(e => e.Availability)
+                .HasMaxLength(50)
+                .HasColumnName("availability");
+
+            entity.Property(e => e.Version)
+                .HasMaxLength(20)
+                .HasColumnName("version");
+
+            entity.Property(e => e.SupersededById)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("superseded_by_id");
+
+            entity.Property(e => e.ApprovalStatus)
+                .HasMaxLength(20)
+                .HasColumnName("approval_status");
+
+            entity.Property(e => e.ApprovedByUserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("approved_by_user_id");
+
+            entity.Property(e => e.ApprovedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("approved_at");
+
+            entity.Property(e => e.IsActive)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.IsStandard)
+                .HasColumnName("is_standard");
+
+            entity.Property(e => e.CreatedByUserId)
+                .HasColumnType("CHAR(36)")
+                .HasConversion(
+                    v => v.HasValue ? v.Value.ToString() : null,
+                    v => v != null ? Guid.Parse(v) : (Guid?)null)
+                .HasColumnName("created_by_user_id");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("DATETIME")
+                .HasColumnName("updated_at");
+
+            // Relationships
+            entity.HasOne(e => e.SupersededBy)
+                .WithMany()
+                .HasForeignKey(e => e.SupersededById)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.CreatedBy)
+                .WithMany()
+                .HasForeignKey(e => e.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.ApprovedBy)
+                .WithMany()
+                .HasForeignKey(e => e.ApprovedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

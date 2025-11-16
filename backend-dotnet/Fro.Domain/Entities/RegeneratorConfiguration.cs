@@ -84,6 +84,7 @@ public class RegeneratorConfiguration : BaseEntity
 
 /// <summary>
 /// Pre-defined configuration template.
+/// Matches Python backend schema for configuration templates.
 /// </summary>
 public class ConfigurationTemplate : BaseEntity
 {
@@ -92,16 +93,27 @@ public class ConfigurationTemplate : BaseEntity
     public RegeneratorType RegeneratorType { get; set; }
     public string? Category { get; set; }
 
-    // Template configuration data (stored as JSON)
+    // Python-style consolidated template configuration (JSON)
+    public string? TemplateConfig { get; set; }
+    public string? DefaultValues { get; set; }
+    public string? RequiredFields { get; set; }
+
+    // .NET-style detailed configuration data (stored as JSON)
     public string? DefaultGeometryConfig { get; set; }
     public string? DefaultMaterialsConfig { get; set; }
     public string? DefaultThermalConfig { get; set; }
     public string? DefaultFlowConfig { get; set; }
     public string? DefaultConstraintsConfig { get; set; }
 
+    // Usage and status
     public bool IsActive { get; set; } = true;
+    public bool IsPublic { get; set; } = true;
     public int UsageCount { get; set; } = 0;
 
+    // Creator information
+    public Guid? CreatedByUserId { get; set; }
+
     // Navigation properties
+    public User? CreatedBy { get; set; }
     public ICollection<RegeneratorConfiguration> Configurations { get; set; } = new List<RegeneratorConfiguration>();
 }
