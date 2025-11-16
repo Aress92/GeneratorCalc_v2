@@ -48,9 +48,9 @@ public class RegeneratorConfiguration : BaseEntity
     public int TotalSteps { get; set; } = 7;
 
     /// <summary>
-    /// List of completed step numbers (stored as JSON)
+    /// List of completed step numbers (stored as JSON string)
     /// </summary>
-    public List<int> CompletedSteps { get; set; } = new();
+    public string? CompletedSteps { get; set; }
 
     // Configuration data (stored as JSON)
     public string? GeometryConfig { get; set; }
@@ -68,8 +68,8 @@ public class RegeneratorConfiguration : BaseEntity
     public bool IsValidated { get; set; } = false;
     public double? ValidationScore { get; set; }
     public string? ValidationResult { get; set; }
-    public List<string> ValidationErrors { get; set; } = new();
-    public List<string> ValidationWarnings { get; set; } = new();
+    public string? ValidationErrors { get; set; }
+    public string? ValidationWarnings { get; set; }
 
     // Template information
     public Guid? BasedOnTemplateId { get; set; }
