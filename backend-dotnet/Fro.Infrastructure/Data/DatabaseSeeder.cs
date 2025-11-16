@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Fro.Domain.Entities;
 using Fro.Domain.Enums;
+using Fro.Application.Interfaces.Security;
 using Fro.Infrastructure.Security;
 
 namespace Fro.Infrastructure.Data;
