@@ -195,7 +195,30 @@ net start mysql
 - Port 3306 jest dostępny
 - Użytkownik `fro_user` istnieje i ma uprawnienia
 
-### Problem 5: Błędy NuGet
+### Problem 5: Błędy kompilacji - "Typ lub przestrzeń nazw nie występuje"
+
+**Przykład błędu:**
+```
+error CS0234: Typ lub przestrzeń nazw „Logging" nie występuje w przestrzeni nazw „Microsoft.Extensions"
+```
+
+**Przyczyna:** Brakujące pakiety NuGet w projekcie.
+
+**Rozwiązanie:**
+```bash
+# Przywróć wszystkie pakiety NuGet
+dotnet restore Forglass.RegeneratorOptimizer.sln
+
+# Następnie zbuduj ponownie
+dotnet build Forglass.RegeneratorOptimizer.sln
+```
+
+**Naprawione w projekcie:**
+- ✅ Dodano `Microsoft.Extensions.Logging.Abstractions` do Fro.Application
+- ✅ Dodano `Microsoft.Extensions.DependencyInjection.Abstractions` do Fro.Application
+- ✅ Zaktualizowano `Hangfire.Redis.StackExchange` do wersji 1.11.0
+
+### Problem 6: Błędy NuGet - Cache
 
 **Rozwiązanie:**
 ```bash
