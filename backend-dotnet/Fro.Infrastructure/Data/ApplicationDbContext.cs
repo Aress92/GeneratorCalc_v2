@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Fro.Domain.Entities;
 using Fro.Domain.Enums;
-using System.Text.Json;
 
 namespace Fro.Infrastructure.Data;
 
@@ -156,9 +155,6 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.CompletedSteps)
                 .HasColumnType("JSON")
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
-                    v => JsonSerializer.Deserialize<List<int>>(v, (JsonSerializerOptions)null!) ?? new List<int>())
                 .HasColumnName("completed_steps");
 
             // JSON configuration columns
@@ -202,16 +198,10 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.ValidationErrors)
                 .HasColumnType("JSON")
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
-                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null!) ?? new List<string>())
                 .HasColumnName("validation_errors");
 
             entity.Property(e => e.ValidationWarnings)
                 .HasColumnType("JSON")
-                .HasConversion(
-                    v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null!),
-                    v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions)null!) ?? new List<string>())
                 .HasColumnName("validation_warnings");
 
             entity.Property(e => e.BasedOnTemplateId)
