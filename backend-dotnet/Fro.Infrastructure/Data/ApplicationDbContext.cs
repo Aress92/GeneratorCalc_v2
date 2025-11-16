@@ -16,12 +16,12 @@ public class ApplicationDbContext : DbContext
     }
 
     // DbSets
-    public DbSet<User> Users => Set<User>();
-    public DbSet<RegeneratorConfiguration> RegeneratorConfigurations => Set<RegeneratorConfiguration>();
-    public DbSet<ConfigurationTemplate> ConfigurationTemplates => Set<ConfigurationTemplate>();
-    public DbSet<OptimizationScenario> OptimizationScenarios => Set<OptimizationScenario>();
-    public DbSet<OptimizationJob> OptimizationJobs => Set<OptimizationJob>();
-    public DbSet<Material> Materials => Set<Material>();
+    public DbSet<User> Users { get; set; } = null!;
+    public DbSet<RegeneratorConfiguration> RegeneratorConfigurations { get; set; } = null!;
+    public DbSet<ConfigurationTemplate> ConfigurationTemplates { get; set; } = null!;
+    public DbSet<OptimizationScenario> OptimizationScenarios { get; set; } = null!;
+    public DbSet<OptimizationJob> OptimizationJobs { get; set; } = null!;
+    public DbSet<Material> Materials { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
