@@ -19,7 +19,14 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
 
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        optionsBuilder.UseMySql(
+            connectionString,
+            serverVersion,
+            mysqlOptions =>
+            {
+                // Specify the assembly containing the migrations
+                mysqlOptions.MigrationsAssembly("Fro.Infrastructure");
+            });
 
         return new ApplicationDbContext(optionsBuilder.Options);
     }
