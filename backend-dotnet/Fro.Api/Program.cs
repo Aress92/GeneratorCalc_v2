@@ -11,6 +11,16 @@ using Fro.Infrastructure;
 using Fro.Application;
 using Fro.Api.Middleware;
 
+// Check if running in EF design-time mode (during migrations) at the very start
+var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
+
+// If in design-time mode, exit immediately to let the DbContextFactory handle things
+if (isEfDesignTime)
+{
+    Console.WriteLine("⚠ EF Design-time mode detected - using ApplicationDbContextFactory");
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
@@ -161,16 +171,10 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Check if running in EF design-time mode (during migrations)
-var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
-
 // Configure the HTTP request pipeline
 
 // Add global exception handler (must be first in pipeline)
-if (!isEfDesignTime)
-{
-    app.UseGlobalExceptionHandler();
-}
+app.UseGlobalExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -228,12 +232,7 @@ app.MapGet("/health", () => Results.Ok(new
 .WithOpenApi();
 
 // Apply database migrations on startup (development only)
-// Skip if running in design-time (e.g., during 'dotnet ef migrations add')
-var isDesignTime = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == null
-                   && args.Contains("--no-build") == false
-                   && Environment.GetEnvironmentVariable("EF_DESIGN_TIME") != null;
-
-if (app.Environment.IsDevelopment() && !isDesignTime)
+if (app.Environment.IsDevelopment())
 {
     try
     {
@@ -281,17 +280,5 @@ if (app.Environment.IsDevelopment() && !isDesignTime)
         Console.WriteLine("  API will start but may not function correctly");
     }
 }
-else if (isDesignTime)
-{
-    Console.WriteLine("⚠ Running in design-time mode (EF migrations) - skipping auto-migration and seeding");
-}
 
-// Don't run the app if we're in EF design-time mode
-if (!isEfDesignTime)
-{
-    app.Run();
-}
-else
-{
-    Console.WriteLine("⚠ EF Design-time mode detected - application will not run");
-}
+app.Run();
