@@ -161,16 +161,10 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Check if running in EF design-time mode (during migrations)
-var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
-
 // Configure the HTTP request pipeline
 
 // Add global exception handler (must be first in pipeline)
-if (!isEfDesignTime)
-{
-    app.UseGlobalExceptionHandler();
-}
+app.UseGlobalExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -227,71 +221,5 @@ app.MapGet("/health", () => Results.Ok(new
 .WithName("HealthCheck")
 .WithOpenApi();
 
-// Apply database migrations on startup (development only)
-// Skip if running in design-time (e.g., during 'dotnet ef migrations add')
-var isDesignTime = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == null
-                   && args.Contains("--no-build") == false
-                   && Environment.GetEnvironmentVariable("EF_DESIGN_TIME") != null;
-
-if (app.Environment.IsDevelopment() && !isDesignTime)
-{
-    try
-    {
-        using var scope = app.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        // Check if database connection is available
-        if (dbContext.Database.CanConnect())
-        {
-            Console.WriteLine("✓ Connected to database");
-
-            // Apply pending migrations if any exist
-            var pendingMigrations = dbContext.Database.GetPendingMigrations();
-            if (pendingMigrations.Any())
-            {
-                Console.WriteLine($"⚠ Applying {pendingMigrations.Count()} pending migration(s)...");
-                dbContext.Database.Migrate();
-                Console.WriteLine("✓ Migrations applied successfully");
-            }
-            else
-            {
-                Console.WriteLine("✓ Database is up to date (no pending migrations)");
-            }
-
-            // Seed database if empty (development only)
-            try
-            {
-                var seeder = scope.ServiceProvider.GetRequiredService<Fro.Infrastructure.Data.DatabaseSeeder>();
-                await seeder.SeedAsync();
-            }
-            catch (Exception seedEx)
-            {
-                Console.WriteLine($"⚠ Warning: Database seeding failed: {seedEx.Message}");
-            }
-        }
-        else
-        {
-            Console.WriteLine("⚠ Warning: Could not connect to database");
-            Console.WriteLine("  API will start but database operations will fail until connection is restored");
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"⚠ Warning: Database migration failed: {ex.Message}");
-        Console.WriteLine("  API will start but may not function correctly");
-    }
-}
-else if (isDesignTime)
-{
-    Console.WriteLine("⚠ Running in design-time mode (EF migrations) - skipping auto-migration and seeding");
-}
-
-// Don't run the app if we're in EF design-time mode
-if (!isEfDesignTime)
-{
-    app.Run();
-}
-else
-{
-    Console.WriteLine("⚠ EF Design-time mode detected - application will not run");
-}
+// Run the application
+app.Run();
