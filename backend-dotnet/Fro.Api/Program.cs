@@ -24,22 +24,37 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 var configuration = builder.Configuration;
 
-// Configure MySQL with Entity Framework Core
-var connectionString = configuration.GetConnectionString("DefaultConnection");
+// Configure Database with Entity Framework Core
+// Use SQLite for development (simple, no server needed)
+// For production, switch to MySQL/PostgreSQL/SQL Server
+var useSqlite = configuration.GetValue<bool>("Database:UseSqlite", true);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    // Use explicit server version instead of AutoDetect to avoid connection during startup
-    var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
-    options.UseMySql(
-        connectionString,
-        serverVersion,
-        mysqlOptions =>
-        {
-            mysqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan.FromSeconds(5),
-                errorNumbersToAdd: null);
-        });
+    if (useSqlite)
+    {
+        // SQLite - simple file-based database for development
+        var dbPath = configuration.GetConnectionString("SqliteConnection") ?? "fro_dev.db";
+        options.UseSqlite($"Data Source={dbPath}");
+        Console.WriteLine($"✓ Using SQLite database: {dbPath}");
+    }
+    else
+    {
+        // MySQL - for production use
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
+        options.UseMySql(
+            connectionString,
+            serverVersion,
+            mysqlOptions =>
+            {
+                mysqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorNumbersToAdd: null);
+            });
+        Console.WriteLine("✓ Using MySQL database");
+    }
 });
 
 // Register Infrastructure services (Repositories)
