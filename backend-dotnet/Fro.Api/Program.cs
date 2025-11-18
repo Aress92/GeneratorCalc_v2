@@ -4,8 +4,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Hangfire;
-using Hangfire.Redis.StackExchange;
-using StackExchange.Redis;
 using Fro.Infrastructure.Data;
 using Fro.Infrastructure;
 using Fro.Application;
@@ -50,39 +48,20 @@ builder.Services.AddInfrastructure();
 // Register Application services (Business logic)
 builder.Services.AddApplication(configuration);
 
-// Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
-try
+// Configure Hangfire with in-memory storage (skip Redis for simpler setup)
+// Redis can be added later for production use
+builder.Services.AddHangfire(config =>
 {
-    var redisConnectionString = configuration.GetConnectionString("Redis");
-    var redis = ConnectionMultiplexer.Connect(redisConnectionString!);
-    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    config.UseInMemoryStorage();
+});
 
-    Console.WriteLine("✓ Connected to Redis");
-
-    // Configure Hangfire with Redis storage
-    builder.Services.AddHangfire(config =>
-    {
-        config.UseRedisStorage(redis, new Hangfire.Redis.StackExchange.RedisStorageOptions
-        {
-            Prefix = "hangfire:",
-            InvisibilityTimeout = TimeSpan.FromMinutes(30)
-        });
-    });
-
-    builder.Services.AddHangfireServer(options =>
-    {
-        options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
-        options.ServerName = $"FRO-Worker-{Environment.MachineName}";
-    });
-
-    Console.WriteLine("✓ Hangfire configured with Redis storage");
-}
-catch (Exception ex)
+builder.Services.AddHangfireServer(options =>
 {
-    Console.WriteLine($"⚠ Warning: Could not connect to Redis. Hangfire will not be available.");
-    Console.WriteLine($"  Error: {ex.Message}");
-    Console.WriteLine($"  API will start without background job support.");
-}
+    options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
+    options.ServerName = $"FRO-Worker-{Environment.MachineName}";
+});
+
+Console.WriteLine("✓ Hangfire configured with in-memory storage");
 
 // Configure JWT Authentication
 var jwtSecret = configuration["JwtSettings:Secret"];
@@ -193,30 +172,23 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Enable Hangfire Dashboard (only if Hangfire was configured)
-if (app.Services.GetService<IConnectionMultiplexer>() != null)
-{
-    var dashboardPath = configuration["Hangfire:DashboardPath"] ?? "/hangfire";
-    var enableAuth = configuration.GetValue<bool>("Hangfire:EnableDashboardAuthorization", true);
+// Enable Hangfire Dashboard
+var dashboardPath = configuration["Hangfire:DashboardPath"] ?? "/hangfire";
+var enableAuth = configuration.GetValue<bool>("Hangfire:EnableDashboardAuthorization", true);
 
-    if (enableAuth)
-    {
-        app.MapHangfireDashboard(dashboardPath);
-    }
-    else
-    {
-        // Development mode - no authorization
-        app.MapHangfireDashboard(dashboardPath, new DashboardOptions
-        {
-            Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>()
-        });
-    }
-    Console.WriteLine($"✓ Hangfire Dashboard available at {dashboardPath}");
+if (enableAuth)
+{
+    app.MapHangfireDashboard(dashboardPath);
 }
 else
 {
-    Console.WriteLine("⚠ Hangfire Dashboard is not available (Redis not connected)");
+    // Development mode - no authorization
+    app.MapHangfireDashboard(dashboardPath, new DashboardOptions
+    {
+        Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>()
+    });
 }
+Console.WriteLine($"✓ Hangfire Dashboard available at {dashboardPath}");
 
 // Map controllers
 app.MapControllers();
