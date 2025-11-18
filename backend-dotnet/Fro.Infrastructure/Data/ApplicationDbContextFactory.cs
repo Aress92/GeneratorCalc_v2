@@ -5,21 +5,18 @@ namespace Fro.Infrastructure.Data;
 
 /// <summary>
 /// Factory for creating ApplicationDbContext instances at design time (for migrations).
+/// Uses SQLite for simplicity - no server required!
 /// </summary>
 public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
-        // Set environment variable to indicate we're in design-time mode
-        Environment.SetEnvironmentVariable("EF_DESIGN_TIME", "true");
-
-        // Use hardcoded connection string for migrations (simplest approach)
-        var connectionString = "Server=localhost;Port=3306;Database=fro_db;User=fro_user;Password=fro_password;";
-
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
 
-        optionsBuilder.UseMySql(connectionString, serverVersion);
+        // Use SQLite for development/migrations - simple file-based database
+        // File will be created in the API project directory
+        var dbPath = Path.Combine("..", "Fro.Api", "fro_dev.db");
+        optionsBuilder.UseSqlite($"Data Source={dbPath}");
 
         return new ApplicationDbContext(optionsBuilder.Options);
     }

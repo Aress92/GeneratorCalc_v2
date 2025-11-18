@@ -4,34 +4,57 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using Hangfire;
-using Hangfire.Redis.StackExchange;
-using StackExchange.Redis;
 using Fro.Infrastructure.Data;
 using Fro.Infrastructure;
 using Fro.Application;
 using Fro.Api.Middleware;
+
+// Check if running in EF design-time mode (during migrations) at the very start
+var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
+
+// If in design-time mode, exit immediately to let the DbContextFactory handle things
+if (isEfDesignTime)
+{
+    Console.WriteLine("⚠ EF Design-time mode detected - using ApplicationDbContextFactory");
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 var configuration = builder.Configuration;
 
-// Configure MySQL with Entity Framework Core
-var connectionString = configuration.GetConnectionString("DefaultConnection");
+// Configure Database with Entity Framework Core
+// Use SQLite for development (simple, no server needed)
+// For production, switch to MySQL/PostgreSQL/SQL Server
+var useSqlite = configuration.GetValue<bool>("Database:UseSqlite", true);
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    // Use explicit server version instead of AutoDetect to avoid connection during startup
-    var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
-    options.UseMySql(
-        connectionString,
-        serverVersion,
-        mysqlOptions =>
-        {
-            mysqlOptions.EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan.FromSeconds(5),
-                errorNumbersToAdd: null);
-        });
+    if (useSqlite)
+    {
+        // SQLite - simple file-based database for development
+        var dbPath = configuration.GetConnectionString("SqliteConnection") ?? "fro_dev.db";
+        options.UseSqlite($"Data Source={dbPath}");
+        Console.WriteLine($"✓ Using SQLite database: {dbPath}");
+    }
+    else
+    {
+        // MySQL - for production use
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var serverVersion = new MySqlServerVersion(new Version(8, 0, 33));
+        options.UseMySql(
+            connectionString,
+            serverVersion,
+            mysqlOptions =>
+            {
+                mysqlOptions.EnableRetryOnFailure(
+                    maxRetryCount: 3,
+                    maxRetryDelay: TimeSpan.FromSeconds(5),
+                    errorNumbersToAdd: null);
+            });
+        Console.WriteLine("✓ Using MySQL database");
+    }
 });
 
 // Register Infrastructure services (Repositories)
@@ -40,39 +63,20 @@ builder.Services.AddInfrastructure();
 // Register Application services (Business logic)
 builder.Services.AddApplication(configuration);
 
-// Configure Redis and Hangfire (optional - will be skipped if Redis is not available)
-try
+// Configure Hangfire with in-memory storage (skip Redis for simpler setup)
+// Redis can be added later for production use
+builder.Services.AddHangfire(config =>
 {
-    var redisConnectionString = configuration.GetConnectionString("Redis");
-    var redis = ConnectionMultiplexer.Connect(redisConnectionString!);
-    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    config.UseInMemoryStorage();
+});
 
-    Console.WriteLine("✓ Connected to Redis");
-
-    // Configure Hangfire with Redis storage
-    builder.Services.AddHangfire(config =>
-    {
-        config.UseRedisStorage(redis, new Hangfire.Redis.StackExchange.RedisStorageOptions
-        {
-            Prefix = "hangfire:",
-            InvisibilityTimeout = TimeSpan.FromMinutes(30)
-        });
-    });
-
-    builder.Services.AddHangfireServer(options =>
-    {
-        options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
-        options.ServerName = $"FRO-Worker-{Environment.MachineName}";
-    });
-
-    Console.WriteLine("✓ Hangfire configured with Redis storage");
-}
-catch (Exception ex)
+builder.Services.AddHangfireServer(options =>
 {
-    Console.WriteLine($"⚠ Warning: Could not connect to Redis. Hangfire will not be available.");
-    Console.WriteLine($"  Error: {ex.Message}");
-    Console.WriteLine($"  API will start without background job support.");
-}
+    options.WorkerCount = configuration.GetValue<int>("Hangfire:WorkerCount", 4);
+    options.ServerName = $"FRO-Worker-{Environment.MachineName}";
+});
+
+Console.WriteLine("✓ Hangfire configured with in-memory storage");
 
 // Configure JWT Authentication
 var jwtSecret = configuration["JwtSettings:Secret"];
@@ -161,16 +165,10 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Check if running in EF design-time mode (during migrations)
-var isEfDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
-
 // Configure the HTTP request pipeline
 
 // Add global exception handler (must be first in pipeline)
-if (!isEfDesignTime)
-{
-    app.UseGlobalExceptionHandler();
-}
+app.UseGlobalExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {
@@ -189,30 +187,23 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Enable Hangfire Dashboard (only if Hangfire was configured)
-if (app.Services.GetService<IConnectionMultiplexer>() != null)
-{
-    var dashboardPath = configuration["Hangfire:DashboardPath"] ?? "/hangfire";
-    var enableAuth = configuration.GetValue<bool>("Hangfire:EnableDashboardAuthorization", true);
+// Enable Hangfire Dashboard
+var dashboardPath = configuration["Hangfire:DashboardPath"] ?? "/hangfire";
+var enableAuth = configuration.GetValue<bool>("Hangfire:EnableDashboardAuthorization", true);
 
-    if (enableAuth)
-    {
-        app.MapHangfireDashboard(dashboardPath);
-    }
-    else
-    {
-        // Development mode - no authorization
-        app.MapHangfireDashboard(dashboardPath, new DashboardOptions
-        {
-            Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>()
-        });
-    }
-    Console.WriteLine($"✓ Hangfire Dashboard available at {dashboardPath}");
+if (enableAuth)
+{
+    app.MapHangfireDashboard(dashboardPath);
 }
 else
 {
-    Console.WriteLine("⚠ Hangfire Dashboard is not available (Redis not connected)");
+    // Development mode - no authorization
+    app.MapHangfireDashboard(dashboardPath, new DashboardOptions
+    {
+        Authorization = Array.Empty<Hangfire.Dashboard.IDashboardAuthorizationFilter>()
+    });
 }
+Console.WriteLine($"✓ Hangfire Dashboard available at {dashboardPath}");
 
 // Map controllers
 app.MapControllers();
@@ -228,12 +219,7 @@ app.MapGet("/health", () => Results.Ok(new
 .WithOpenApi();
 
 // Apply database migrations on startup (development only)
-// Skip if running in design-time (e.g., during 'dotnet ef migrations add')
-var isDesignTime = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == null
-                   && args.Contains("--no-build") == false
-                   && Environment.GetEnvironmentVariable("EF_DESIGN_TIME") != null;
-
-if (app.Environment.IsDevelopment() && !isDesignTime)
+if (app.Environment.IsDevelopment())
 {
     try
     {
@@ -281,17 +267,5 @@ if (app.Environment.IsDevelopment() && !isDesignTime)
         Console.WriteLine("  API will start but may not function correctly");
     }
 }
-else if (isDesignTime)
-{
-    Console.WriteLine("⚠ Running in design-time mode (EF migrations) - skipping auto-migration and seeding");
-}
 
-// Don't run the app if we're in EF design-time mode
-if (!isEfDesignTime)
-{
-    app.Run();
-}
-else
-{
-    Console.WriteLine("⚠ EF Design-time mode detected - application will not run");
-}
+app.Run();

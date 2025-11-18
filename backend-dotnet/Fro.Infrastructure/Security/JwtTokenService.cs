@@ -20,14 +20,23 @@ public class JwtTokenService : IJwtTokenService
 
     public JwtTokenService(IConfiguration configuration)
     {
-        _configuration = configuration;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+
+        // Use defaults if not configured (for design-time scenarios like EF migrations)
         _secret = configuration["JwtSettings:Secret"]
-            ?? throw new InvalidOperationException("JWT Secret is not configured");
+            ?? "design-time-secret-key-minimum-32-characters-long-do-not-use-in-production";
         _issuer = configuration["JwtSettings:Issuer"]
-            ?? throw new InvalidOperationException("JWT Issuer is not configured");
+            ?? "DesignTime.Issuer";
         _audience = configuration["JwtSettings:Audience"]
-            ?? throw new InvalidOperationException("JWT Audience is not configured");
+            ?? "DesignTime.Audience";
         _expirationMinutes = configuration.GetValue<int>("JwtSettings:ExpirationMinutes", 1440);
+
+        // Warn if using defaults (except during design-time)
+        var isDesignTime = Environment.GetEnvironmentVariable("EF_DESIGN_TIME") == "true";
+        if (!isDesignTime && (_secret.Contains("design-time") || _issuer.Contains("DesignTime")))
+        {
+            Console.WriteLine("⚠ WARNING: JWT settings not configured properly. Using design-time defaults.");
+        }
     }
 
     /// <summary>
