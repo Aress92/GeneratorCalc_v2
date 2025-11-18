@@ -19,7 +19,7 @@ services:
     depends_on:
       - backend
 
-  # Backend FastAPI
+  # Backend FastAPI (Python)
   backend:
     build:
       context: ./backend
@@ -46,6 +46,42 @@ services:
     depends_on:
       - mysql
       - redis
+
+  # Backend .NET (C#) - IN DEVELOPMENT
+  backend-dotnet:
+    build:
+      context: ./backend-dotnet
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Server=mysql;Port=3306;Database=fro_db;User=fro_user;Password=fro_password;
+      - ConnectionStrings__Redis=redis:6379,abortConnect=false
+      - JwtSettings__Secret=your-super-secret-jwt-key-minimum-32-characters-long-change-in-production
+      - JwtSettings__Issuer=Forglass.RegeneratorOptimizer
+      - JwtSettings__Audience=Forglass.RegeneratorOptimizer.API
+      - JwtSettings__ExpirationMinutes=1440
+      - Hangfire__WorkerCount=4
+      - Hangfire__DashboardPath=/hangfire
+      - Hangfire__EnableDashboardAuthorization=false
+      - Cors__AllowedOrigins__0=http://localhost:3000
+      - Cors__AllowedOrigins__1=http://localhost:8000
+    networks:
+      - fro_network
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - dotnet
 
   # Celery Worker
   celery:
