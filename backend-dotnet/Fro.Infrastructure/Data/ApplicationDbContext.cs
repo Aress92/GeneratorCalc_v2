@@ -204,6 +204,9 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("JSON")
                 .HasColumnName("validation_warnings");
 
+            // Ignore computed/unmapped properties
+            entity.Ignore(e => e.ValidationResult);
+
             entity.Property(e => e.BasedOnTemplateId)
                 .HasColumnType("CHAR(36)")
                 .HasConversion(
